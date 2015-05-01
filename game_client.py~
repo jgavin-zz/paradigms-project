@@ -27,7 +27,6 @@ class Player1ConnectionProtocol(Protocol):
 		self.handler.gameData = data
 		if(self.handler.started == 0):
 			self.handler.startGame()
-			self.handler.started = 1
 
 #Protocol for command connection
 class Player2ConnectionProtocol(Protocol):
@@ -43,7 +42,6 @@ class Player2ConnectionProtocol(Protocol):
 		self.handler.gameData = data
 		if(self.handler.started == 0):
 			self.handler.startGame()
-			self.handler.started = 1
 
 #Protocol for command connection
 class InitialConnectionProtocol(Protocol):
