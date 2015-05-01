@@ -49,7 +49,8 @@ class Gun(pygame.sprite.Sprite):
 		# if I can fire laser beams, this flag will say
 		# whether I should be firing them /right now/
 		self.tofire = False
-		self.rect.x += 20
+		self.rect.x += 7
+		self.rect.y += 5
 		#self.rect.center = (self.rect.center[0]-10,self.rect.center[1])
 
 	def tick(self):
