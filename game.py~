@@ -1,6 +1,13 @@
 import sys
 import os
 
+from twisted.internet.protocol import Factory
+from twisted.internet.protocol import ClientFactory
+from twisted.internet.protocol import Protocol
+from twisted.internet import reactor
+from twisted.internet.defer import DeferredQueue
+from twisted.internet.defer import Deferred
+
 import pygame
 from pygame.locals import *
 from math import atan2, degrees, pi
@@ -49,7 +56,8 @@ class Gun(pygame.sprite.Sprite):
 		# if I can fire laser beams, this flag will say
 		# whether I should be firing them /right now/
 		self.tofire = False
-		self.rect.x += 20
+		self.rect.x += 7
+		self.rect.y += 5
 		#self.rect.center = (self.rect.center[0]-10,self.rect.center[1])
 
 	def tick(self):
@@ -63,18 +71,7 @@ class Gun(pygame.sprite.Sprite):
 			dAngle  = degrees(rAngle) + 90
 		else:
 			dAngle = 270
-		point = self.rect.center
-		axis = (300,300)
-		x, y = point[0] - axis[0], point[1] - axis[1]
-		radius = sqrt(x*x + y*y) # get the distance between points
-
-	   	RAng = radians(dAngle)       # convert ang to radians.
-
-	    	h = axis[0] + ( radius * cos(RAng) )
-    		v = axis[1] + ( radius * sin(RAng) )
-
- 
-		self.rect.center = h,v
+		self.image = pygame.transform.rotate(self.orig_image, dAngle)
 		self.rect = self.image.get_rect(center=center)		
 
 	def move(self, keycode):
@@ -144,12 +141,6 @@ class GameSpace:
 						cY = float((dy/self.laser.image.get_height()))/100
 						xpos += cX
 						ypos += cY
-						if check2:
-							if (xpos > 310 and ypos > 353):
-								self.enemy.image = pygame.image.load("globe_red100.png")
-								if check:
-									self.enemyHealth -= 1
-									check = False
 				if event.type == pygame.QUIT:
 					sys.exit()
 			# 6) send a tick to every game object!
@@ -164,3 +155,5 @@ class GameSpace:
 if __name__ == '__main__':
 	gs = GameSpace()
 	gs.main()
+	reactor.connectTCP("localhost", 8000, ServerFactory())
+	reactor.run()

@@ -1,6 +1,13 @@
 import sys
 import os
 
+from twisted.internet.protocol import Factory
+from twisted.internet.protocol import ClientFactory
+from twisted.internet.protocol import Protocol
+from twisted.internet import reactor
+from twisted.internet.defer import DeferredQueue
+from twisted.internet.defer import Deferred
+
 import pygame
 from pygame.locals import *
 from math import atan2, degrees, pi
@@ -10,7 +17,7 @@ class Player(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
-		self.image = pygame.image.load("Panzer.png")
+		self.image = pygame.image.load("Hutchkiss.png")
 		self.rect = self.image.get_rect()
 		# keep original image to limit resize errors
 		self.orig_image = self.image
@@ -42,7 +49,7 @@ class Gun(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
-		self.image = pygame.image.load("PanzerGun.png")
+		self.image = pygame.image.load("HutchkissGunMM.png")
 		self.rect = self.image.get_rect()
 		# keep original image to limit resize errors
 		self.orig_image = self.image
@@ -134,12 +141,6 @@ class GameSpace:
 						cY = float((dy/self.laser.image.get_height()))/100
 						xpos += cX
 						ypos += cY
-						if check2:
-							if (xpos > 310 and ypos > 353):
-								self.enemy.image = pygame.image.load("globe_red100.png")
-								if check:
-									self.enemyHealth -= 1
-									check = False
 				if event.type == pygame.QUIT:
 					sys.exit()
 			# 6) send a tick to every game object!
@@ -154,3 +155,5 @@ class GameSpace:
 if __name__ == '__main__':
 	gs = GameSpace()
 	gs.main()
+	reactor.connectTCP("localhost", 8000, ServerFactory())
+	reactor.run()
