@@ -1,5 +1,5 @@
-#Jacob Gavin
-#Home.py
+#Jacob Gavin & James Harkins
+#game_server.py
 #Twisted Primer Assignment
 
 from twisted.internet.protocol import Factory
@@ -8,123 +8,100 @@ from twisted.internet import reactor
 from twisted.internet.defer import DeferredQueue
 from twisted.internet.defer import Deferred
 
-#Protocol for command connection
-class HomeCommandConnection(LineReceiver):
+#Protocol for temp connection
+class TempProtocol(LineReceiver):
 
 	def __init__(self, handler):
-		self.handler = handler
-
-    	def connectionMade(self):
-		self.handler.commandConnection = self
-		if(self.handler.clientConnection != ''):
-			self.handler.requestDataConnection()
+			self.handler = handler
 			
-		return
-
-#Protocol for data connection
-class HomeDataConnection(LineReceiver):
-
-	def __init__(self, handler):
-		self.handler = handler
-
-    	def connectionMade(self):
-		self.handler.dataConnection = self
-
-		d = self.handler.queue.get()
-		d.addCallback(self.handler.sendQueuedData)
-		return
-
-	def dataReceived(self, data):
-		self.handler.forwardDataToClient(data)
-
-#Protocol for client connection
-class ClientConnectionProtocol(LineReceiver):
-
-	def __init__(self, handler):
-		self.handler = handler
-
-    	def connectionMade(self):
-		self.handler.clientConnection = self
-		DataFactory = DataConnectionFactory(self.handler)
-		reactor.listenTCP(32003, DataFactory)
-
-		self.handler.requestDataConnection()
-		return
-
-	def dataReceived(self, data):
-		
-		if(self.handler.dataConnection == ''):
-			self.handler.queue.put(data)
-		else:
-			self.handler.forwardClientToData(data)
-
-
-#Factory for command connection
-class CommandConnectionFactory(Factory):
-
-	def __init__(self, handler):
-		self.handler = handler
-
-    	def buildProtocol(self, addr):
-       		return HomeCommandConnection(self.handler)
-
-#Factory for client connection
-class ClientConnectionFactory(Factory):
-
-	def __init__(self, handler):
-		self.handler = handler	
-
-    	def buildProtocol(self, addr):
-       		return ClientConnectionProtocol(self.handler)
-
-#Factory for data connection
-class DataConnectionFactory(Factory):
-
-	def __init__(self, handler):
-		self.handler = handler
-
-    	def buildProtocol(self, addr):
-       		return HomeDataConnection(self.handler)
-	
-#Handler which holds copies of every connection and handles all interaction between connections
-class HomeConnectionHandler:
-
-
-	#Initialize to connections to empty string and create deferred queue
-	def __init__(self):
-
-		self.commandConnection = ''
-		self.dataConnection = ''
-		self.clientConnection = ''
-		self.queue = DeferredQueue()
-
-	#Send request to work on command connection
-	def requestDataConnection(self):
-		self.commandConnection.sendLine("1")
-
-	#Bridge data to client
-	def forwardDataToClient(self, data):
-		self.clientConnection.transport.write(data)
-
-	#Bridge client to data
-	def forwardClientToData(self, data):
-		self.dataConnection.transport.write(data)
-
-	#Send data stored up in queue until queue is empty
-	def sendQueuedData(self, data):
-		if(data):
-			self.dataConnection.transport.write(data)
-		self.queue.get().addCallback( self.sendQueuedData )
-
-#Create connectionHandler and pass it to factories
-connectionHandler = HomeConnectionHandler()
-CommandFactory = CommandConnectionFactory(connectionHandler)
-ClientFactory = ClientConnectionFactory(connectionHandler)
-
-#Listen For Connections from Work and direct to Command and Client Factories
-reactor.listenTCP(32004, CommandFactory)
-reactor.listenTCP(9003, ClientFactory)
-
-#Start event loop
-reactor.run()
-
+			    	def connectionMade(self):
+			    			if(self.handler.connectionMade == 0):
+			    						self.handler.connectionMade = 1
+			    									self.sendLine("1")
+			    											else:
+			    														self.sendLine("2")
+			    																return
+			    																
+			    																#Protocol for player1 connection
+			    																class Player1Protocol(LineReceiver):
+			    																
+			    																	def __init__(self, handler):
+			    																			self.handler = handler
+			    																			
+			    																			    	def connectionMade(self):
+			    																			    			self.handler.player1Connection = self
+			    																			    			
+			    																			    				def dataReceived(self, data):
+			    																			    						print data
+			    																			    						
+			    																			    						#Protocol for player2 connection
+			    																			    						class Player2Protocol(LineReceiver):
+			    																			    						
+			    																			    							def __init__(self, handler):
+			    																			    									self.handler = handler
+			    																			    									
+			    																			    									    	def connectionMade(self):
+			    																			    									    			self.handler.player2Connection = self
+			    																			    									    					self.handler.tellPlayersToStart()
+			    																			    									    							return
+			    																			    									    							
+			    																			    									    								def dataReceived(self, data):
+			    																			    									    										print data
+			    																			    									    										
+			    																			    									    										#Factory for client1 connection
+			    																			    									    										class TempFactory(Factory):
+			    																			    									    										
+			    																			    									    											def __init__(self, handler):
+			    																			    									    													self.handler = handler	
+			    																			    									    													
+			    																			    									    													    	def buildProtocol(self, addr):
+			    																			    									    													    	       		return TempProtocol(self.handler)
+			    																			    									    													    	       		
+			    																			    									    													    	       		#Factory for client1 connection
+			    																			    									    													    	       		class Player1Factory(Factory):
+			    																			    									    													    	       		
+			    																			    									    													    	       			def __init__(self, handler):
+			    																			    									    													    	       					self.handler = handler	
+			    																			    									    													    	       					
+			    																			    									    													    	       					    	def buildProtocol(self, addr):
+			    																			    									    													    	       					    	       		return Player1Protocol(self.handler)
+			    																			    									    													    	       					    	       		
+			    																			    									    													    	       					    	       		#Factory for client2 connection
+			    																			    									    													    	       					    	       		class Player2Factory(Factory):
+			    																			    									    													    	       					    	       		
+			    																			    									    													    	       					    	       			def __init__(self, handler):
+			    																			    									    													    	       					    	       					self.handler = handler	
+			    																			    									    													    	       					    	       					
+			    																			    									    													    	       					    	       					    	def buildProtocol(self, addr):
+			    																			    									    													    	       					    	       					    	       		return Player2Protocol(self.handler)
+			    																			    									    													    	       					    	       					    	       		
+			    																			    									    													    	       					    	       					    	       			
+			    																			    									    													    	       					    	       					    	       			#Handler which holds copies of every connection and handles all interaction between connections
+			    																			    									    													    	       					    	       					    	       			class GameHandler:
+			    																			    									    													    	       					    	       					    	       			
+			    																			    									    													    	       					    	       					    	       			
+			    																			    									    													    	       					    	       					    	       				#Initialize to connections to empty string and create deferred queue
+			    																			    									    													    	       					    	       					    	       					def __init__(self):
+			    																			    									    													    	       					    	       					    	       					
+			    																			    									    													    	       					    	       					    	       							self.connectionMade = 0
+			    																			    									    													    	       					    	       					    	       									self.player1Connection = ''
+			    																			    									    													    	       					    	       					    	       											self.player2Connection = ''
+			    																			    									    													    	       					    	       					    	       											
+			    																			    									    													    	       					    	       					    	       												def tellPlayersToStart(self):
+			    																			    									    													    	       					    	       					    	       														self.player1Connection.transport.write('start')
+			    																			    									    													    	       					    	       					    	       																self.player2Connection.transport.write('start')
+			    																			    									    													    	       					    	       					    	       																
+			    																			    									    													    	       					    	       					    	       																#Create connectionHandler and pass it to factories
+			    																			    									    													    	       					    	       					    	       																gameHandler = GameHandler()
+			    																			    									    													    	       					    	       					    	       																tempFactory = TempFactory(gameHandler)
+			    																			    									    													    	       					    	       					    	       																player1Factory = Player1Factory(gameHandler)
+			    																			    									    													    	       					    	       					    	       																player2Factory = Player2Factory(gameHandler)
+			    																			    									    													    	       					    	       					    	       																
+			    																			    									    													    	       					    	       					    	       																#Listen For Connections from Work and direct to Command and Client Factories
+			    																			    									    													    	       					    	       					    	       																reactor.listenTCP(32000, tempFactory)
+			    																			    									    													    	       					    	       					    	       																reactor.listenTCP(32001, player1Factory)
+			    																			    									    													    	       					    	       					    	       																reactor.listenTCP(32002, player2Factory)
+			    																			    									    													    	       					    	       					    	       																
+			    																			    									    													    	       					    	       					    	       																#Start event loop
+			    																			    									    													    	       					    	       					    	       																reactor.run()
+			    																			    									    													    	       					    	       					    	       																
