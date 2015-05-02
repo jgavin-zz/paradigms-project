@@ -137,8 +137,8 @@ class Gun2(pygame.sprite.Sprite):
 class Bullet(pygame.sprite.Sprite):
 	def __init__(self, x, y, angle):
 		pygame.sprite.Sprite.__init__(self)
-		self.image = pygame.image.load("bullet.jpg")
-		self.image = pygame.transform.scale(self.image, (8, 16))
+		self.image = pygame.image.load("blueBullet.jpg")
+		#self.image = pygame.transform.scale(self.image, (8, 16))
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
 		center = self.rect.center
@@ -236,7 +236,7 @@ class GameSpace:
 
 		#Initialize basic game information
 		pygame.init()
-		self.size = self.width, self.height = 700, 600
+		self.size = self.width, self.height = 500, 400
 		self.black = 0, 0, 0
 		self.screen = pygame.display.set_mode(self.size)
 		pygame.display.set_caption("Player " + str(self.playerID))

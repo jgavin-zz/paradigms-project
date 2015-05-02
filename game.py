@@ -137,8 +137,8 @@ class Gun2(pygame.sprite.Sprite):
 class Bullet(pygame.sprite.Sprite):
 	def __init__(self, x, y, angle):
 		pygame.sprite.Sprite.__init__(self)
-		self.image = pygame.image.load("bullet.jpg")
-		self.image = pygame.transform.scale(self.image, (8, 16))
+		self.image = pygame.image.load("blueBullet.jpg")
+		self.image = pygame.transform.scale(self.image, (10, 10))
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
 		center = self.rect.center
