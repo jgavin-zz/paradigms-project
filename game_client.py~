@@ -12,6 +12,8 @@ from game import *
 import cPickle as pickle
 import json
 
+import sys
+import os
 
 #Protocol for command connection
 class Player1ConnectionProtocol(Protocol):
@@ -23,10 +25,12 @@ class Player1ConnectionProtocol(Protocol):
 		self.handler.connection = self
 
 	def dataReceived(self, data):
+		print data
 		data = json.loads(data)
 		self.handler.gameData = data
 		if(self.handler.started == 0):
 			self.handler.startGame()
+			self.handler.started = 1
 
 #Protocol for command connection
 class Player2ConnectionProtocol(Protocol):
@@ -42,6 +46,7 @@ class Player2ConnectionProtocol(Protocol):
 		self.handler.gameData = data
 		if(self.handler.started == 0):
 			self.handler.startGame()
+			self.handler.started = 1
 
 #Protocol for command connection
 class InitialConnectionProtocol(Protocol):

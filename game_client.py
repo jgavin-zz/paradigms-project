@@ -12,6 +12,8 @@ from game import *
 import cPickle as pickle
 import json
 
+import sys
+import os
 
 #Protocol for command connection
 class Player1ConnectionProtocol(Protocol):

@@ -24,6 +24,7 @@ class EventPackage:
 		self.handler['mouseEvent'] = ""
 		self.handler['mx'] = ""
 		self.handler['my'] = ""
+		self.handler['exit'] = 0
 		self.connection = connection
 
 	def addKeyEvent(self, keycode):
@@ -42,6 +43,9 @@ class EventPackage:
 	def setMouseCoordinates(self, mx, my):
 		self.handler['mx'] = mx
 		self.handler['my'] = my
+
+	def setExit(self):
+		self.handler['exit'] = 1
 
 	def send(self):
 		data = json.dumps(self.handler)
@@ -167,12 +171,10 @@ class GameSpace:
 
 		#Update Player Angles
 		angle = data['player1Angle']
-		print "Player 1 angle: ", angle
 		self.Player1.image = pygame.transform.rotate(self.Player1.orig_image, angle)
 		center = self.Player1.rect.center
 		self.Player1.rect = self.Player1.image.get_rect(center=center)
 		angle = data['player2Angle']
-		print "Player 2 angle: ", angle
 		self.Player2.image = pygame.transform.rotate(self.Player2.orig_image, angle)
 		center = self.Player2.rect.center
 		self.Player2.rect = self.Player2.image.get_rect(center=center)
@@ -203,13 +205,16 @@ class GameSpace:
 		#Initiate game loop
 		lc = task.LoopingCall(self.gameLoop)
 		lc.start(.01)
+		if self.handler.gameData['exit']:
+			lc.stop()
+			reactor.stop()
 
 	def gameLoop(self):
 
 		#Get game info from server and update object information
 		newData = self.handler.gameData
 		self.updateGameData(newData)
-
+		check = 0
 		#Add user input events to event package and send package to server
 		self.event_package = EventPackage(self.connection)
 		for event in pygame.event.get():
@@ -218,7 +223,7 @@ class GameSpace:
 			if event.type == MOUSEBUTTONDOWN:
 				self.event_package.setMousePressed()
 			if event.type == pygame.QUIT:
-				sys.exit()
+				self.event_package.setExit()
 		mx, my = pygame.mouse.get_pos()
 		self.event_package.setMouseCoordinates(mx, my)
 		self.event_package.send()

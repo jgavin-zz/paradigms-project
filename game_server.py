@@ -10,6 +10,8 @@ from twisted.internet.defer import Deferred
 import json
 import cPickle as pickle
 from math import *
+import sys
+import os
 
 #Protocol for temp connection
 class TempProtocol(LineReceiver):
@@ -115,6 +117,9 @@ class GameHandler:
 	def processPlayer1Events(self, events):
 		mx = events['mx']
 		my = events['my']
+		#if events['exit']:
+		#	self.exitGame()
+
 		if( events["mouseEvent"] == 'Pressed' ):
 			self.addBullet(self.player1x, self.player1y, mx, my)
 
@@ -195,6 +200,13 @@ class GameHandler:
 			rAngle = atan2(dy, -dx)
 			self.player2GunAngle  = degrees(rAngle) + 90
 
+	def exitGame(self):
+		data = {}
+		data['exit'] = 1
+		data = json.dumps(data)
+		self.player1Connection.transport.write(data)
+		self.player2Connection.transport.write(data)
+
 	def sendGameData(self, playerID):
 
 		data = {}
@@ -202,6 +214,7 @@ class GameHandler:
 		data['player1y'] = self.player1y
 		data['player2x'] = self.player2x
 		data['player2y'] = self.player2y
+		data['exit'] = 0
 
 		if(playerID == 1):
 			data['partnerGunAngle'] = self.player2GunAngle
