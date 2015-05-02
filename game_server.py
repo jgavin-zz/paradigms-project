@@ -12,6 +12,7 @@ import cPickle as pickle
 from math import *
 import sys
 import os
+import random
 
 #Protocol for temp connection
 class TempProtocol(LineReceiver):
@@ -85,6 +86,84 @@ class Player2Factory(Factory):
     	def buildProtocol(self, addr):
        		return Player2Protocol(self.handler)
 
+
+class EnemyData:
+
+	def __init__(self, enemyID):
+
+		self.enemyID = enemyID
+		self.target = 0
+		self.xcenter = 450
+		self.ycenter = 200
+		self.angle = 90
+		self.alive = 1
+
+	def setTarget(self, x1, y1, x2, y2):
+
+		dx1 = self.xcenter - x1
+		dy1 = self.ycenter - y1
+
+		dx2 = self.xcenter - x2
+		dy2 = self.ycenter - y2
+	
+		if( hypot(dx1, dy1) <= hypot(dx2, dy2) ):
+			self.target = 1
+		else:
+			self.target = 2
+		
+
+	def move(self, playerxcenter, playerycenter):
+
+		#First set angle
+		dx = self.xcenter - playerxcenter
+		dy = self.ycenter - playerycenter
+		rangle = atan2(dy, -dx)
+		self.angle  = degrees(rangle) - 90
+		
+		#Move x and y
+		if( hypot(dx, dy) > 100 ):
+			angle = self.angle + 90
+			angle = radians(angle)
+
+			self.xcenter = self.xcenter + int( cos(angle) * 20 )
+			self.ycenter = self.ycenter - int( sin(angle) * 20 )
+		
+
+class BulletData:
+
+	def __init__(self, bulletID, playerID, playerxcenter, playerycenter, angle, gunLength):
+
+		self.bulletID = bulletID
+		self.playerID = playerID
+		self.xcenter = 0
+		self.ycenter = 0
+		self.vx = 0
+		self.vy = 0
+		self.angle = degrees(angle) + 90
+		self.alive = 1
+
+		self.setInitialPosition(playerxcenter, playerycenter, angle, gunLength)
+		self.setInitialVelocity(angle)
+
+	def setInitialPosition(self, playerxcenter, playerycenter, angle, gunLength):
+	
+		angle = self.angle + 90
+
+		angle = radians(angle)
+
+		self.xcenter = playerxcenter + int( cos(angle) * gunLength/2 )
+		self.ycenter = playerycenter - int( sin(angle) * gunLength/2 )		
+
+	def setInitialVelocity(self, angle):
+
+		self.vx = cos(angle) * 10
+		self.vy = sin(angle) * 10
+
+	def move(self):
+
+		self.xcenter = int(self.xcenter - self.vx)
+		self.ycenter = int(self.ycenter + self.vy)
+
 	
 #Handler which holds copies of every connection and handles all interaction between connections
 class GameHandler:
@@ -108,6 +187,15 @@ class GameHandler:
 		self.player1Angle = 90
 		self.player2Angle = 90
 
+		self.r1Angle = 0
+		self.r2Angle = 0
+
+		self.gunLength = 80
+
+		self.enemies = []
+		self.bullets = []
+
+		self.gamecounter = 0
 		
 
 	def tellPlayersToStart(self):
@@ -115,13 +203,16 @@ class GameHandler:
 		self.sendGameData(2)
 
 	def processPlayer1Events(self, events):
+		self.gamecounter = self.gamecounter + 1
+		
+		if(self.gamecounter%25 == 0):
+			self.enemies.append(EnemyData(len(self.enemies) + 1))
+			self.enemies[len(self.enemies) - 1].setTarget(self.player1x, self.player1y, self.player2x, self.player2y)
+
 		mx = events['mx']
 		my = events['my']
 		#if events['exit']:
 		#	self.exitGame()
-
-		if( events["mouseEvent"] == 'Pressed' ):
-			self.addBullet(self.player1x, self.player1y, mx, my)
 
 		direction = events["keyPressed"]
 		if( direction != '' ):
@@ -129,14 +220,24 @@ class GameHandler:
 
 		self.computeAngle(1, mx, my)
 
+		#Move bullets
+		for b in self.bullets:
+			if(b.playerID == 1 and b.alive == 1):
+				b.move()
+
+		if( events["mouseEvent"] == 'Pressed' ):
+			self.bullets.append( BulletData(len(self.bullets) + 1, 1, self.player1x, self.player1y, self.r1Angle, self.gunLength))
+
+		for e in self.enemies:
+			if(e.target == 1 and e.alive == 1):
+				e.move(self.player1x, self.player1y)
+
 		self.sendGameData(1)
 		return
 
 	def processPlayer2Events(self, events):
 		mx = events['mx']
 		my = events['my']
-		if( events["mouseEvent"] == 'Pressed' ):
-			self.addBullet(self.player2x, self.player2y, mx, my)
 
 		direction = events["keyPressed"]
 		if( direction != '' ):
@@ -144,11 +245,19 @@ class GameHandler:
 
 		self.computeAngle(2, mx, my)
 
-		self.sendGameData(2)
-		return
+		#Move bullets
+		for b in self.bullets:
+			if(b.playerID == 2 and b.alive == 1):
+				b.move()
 
-	def addBullet(self, playerx, playery, mx, my):
-		
+		if( events["mouseEvent"] == 'Pressed' ):
+			self.bullets.append( BulletData(len(self.bullets) + 1, 2, self.player2x, self.player2y, self.r2Angle, self.gunLength))
+
+		for e in self.enemies:
+			if(e.target == 2 and e.alive == 1):
+				e.move(self.player2x, self.player2y)
+
+		self.sendGameData(2)
 		return
 
 	def movePlayer(self, playerID, direction):
@@ -191,14 +300,14 @@ class GameHandler:
 		if(playerID == 1):
 			dx = mx - (self.player1x)
 			dy = my - (self.player1y)
-			rAngle = atan2(dy, -dx)
-			self.player1GunAngle  = degrees(rAngle) + 90
+			self.r1Angle = atan2(dy, -dx)
+			self.player1GunAngle  = degrees(self.r1Angle) + 90
 
 		if(playerID == 2):
 			dx = mx - (self.player2x)
 			dy = my - (self.player2y)
-			rAngle = atan2(dy, -dx)
-			self.player2GunAngle  = degrees(rAngle) + 90
+			self.r2Angle = atan2(dy, -dx)
+			self.player2GunAngle  = degrees(self.r2Angle) + 90
 
 	def exitGame(self):
 		data = {}
@@ -223,6 +332,15 @@ class GameHandler:
 
 		data['player1Angle'] = self.player1Angle
 		data['player2Angle'] = self.player2Angle
+
+		data['bullets'] = []
+		for b in self.bullets:
+			data['bullets'].append({'bulletID' : b.bulletID, 'x':b.xcenter, 'y':b.ycenter, 'angle':b.angle})
+
+		data['enemies'] = []
+		for e in self.enemies:
+			data['enemies'].append({'enemyID' : e.enemyID, 'x':e.xcenter, 'y':e.ycenter, 'angle':e.angle})
+		
 
 		data = json.dumps(data)
 		

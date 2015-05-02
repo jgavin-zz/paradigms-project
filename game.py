@@ -55,7 +55,7 @@ class Background(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
-		self.image = pygame.image.load("desert-texture.jpg")
+		self.image = pygame.image.load("grass-texture.jpg")
 		self.rect = self.image.get_rect()
 
 
@@ -107,7 +107,8 @@ class Gun1(pygame.sprite.Sprite):
 			else:
 				dAngle = 270
 			self.image = pygame.transform.rotate(self.orig_image, dAngle)
-			self.rect = self.image.get_rect(center=center)		
+			self.rect = self.image.get_rect(center=center)	
+
 	
 class Gun2(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
@@ -132,6 +133,33 @@ class Gun2(pygame.sprite.Sprite):
 				dAngle = 270
 			self.image = pygame.transform.rotate(self.orig_image, dAngle)
 			self.rect = self.image.get_rect(center=center)
+
+class Bullet(pygame.sprite.Sprite):
+	def __init__(self, x, y, angle):
+		pygame.sprite.Sprite.__init__(self)
+		self.image = pygame.image.load("bullet.jpg")
+		self.image = pygame.transform.scale(self.image, (8, 16))
+		self.orig_image = self.image
+		self.rect = self.image.get_rect()
+		center = self.rect.center
+		self.image = pygame.transform.rotate(self.orig_image, angle)
+		self.rect = self.image.get_rect(center=center)
+		self.rect.centerx = x
+		self.rect.centery = y
+		# keep original image to limit resize errors
+
+class Enemy(pygame.sprite.Sprite):
+	def __init__(self, x, y, angle):
+		pygame.sprite.Sprite.__init__(self)
+		self.image = pygame.image.load("soldier.jpg")
+		self.image = pygame.transform.scale(self.image, (20, 40))
+		self.orig_image = self.image
+		self.rect = self.image.get_rect()
+		center = self.rect.center
+		self.image = pygame.transform.rotate(self.orig_image, angle)
+		self.rect = self.image.get_rect(center=center)
+		self.rect.centerx = x
+		self.rect.centery = y	
 			
 
 class GameSpace:
@@ -178,6 +206,26 @@ class GameSpace:
 		self.Player2.image = pygame.transform.rotate(self.Player2.orig_image, angle)
 		center = self.Player2.rect.center
 		self.Player2.rect = self.Player2.image.get_rect(center=center)
+
+		#Update Bullets
+		for b in data['bullets']:
+			if( b['bulletID'] > len(self.bullets) ):
+				self.bullets.append(Bullet(b['x'], b['y'], b['angle']))
+			else:
+				self.bullets[b['bulletID'] - 1].rect.centerx = b['x']
+				self.bullets[b['bulletID'] - 1].rect.centery = b['y']
+
+		#Update Enemies
+		for e in data['enemies']:
+			if( e['enemyID'] > len(self.enemies) ):
+				self.enemies.append(Enemy(e['x'], e['y'], e['angle']))
+			else:
+				self.enemies[e['enemyID'] - 1].rect.centerx = e['x']
+				self.enemies[e['enemyID'] - 1].rect.centery = e['y']
+
+				self.enemies[e['enemyID'] - 1].image = pygame.transform.rotate(self.enemies[e['enemyID'] - 1].orig_image, e['angle'])
+				center = self.enemies[e['enemyID'] - 1].rect.center
+				self.enemies[e['enemyID'] - 1].rect = self.enemies[e['enemyID'] - 1].image.get_rect(center=center)
 		
 		
 		
@@ -188,7 +236,7 @@ class GameSpace:
 
 		#Initialize basic game information
 		pygame.init()
-		self.size = self.width, self.height = 400, 300
+		self.size = self.width, self.height = 500, 400
 		self.black = 0, 0, 0
 		self.screen = pygame.display.set_mode(self.size)
 		pygame.display.set_caption("Player " + str(self.playerID))
@@ -199,6 +247,8 @@ class GameSpace:
 		self.Gun1 = Gun1(self)
 		self.Player2 = Player2(self)
 		self.Gun2 = Gun2(self)
+		self.bullets = []
+		self.enemies = []
 		check2 = True
 
 		pygame.key.set_repeat()
@@ -242,4 +292,8 @@ class GameSpace:
 		self.screen.blit(self.Gun1.image, self.Gun1.rect)
 		self.screen.blit(self.Player2.image, self.Player2.rect)
 		self.screen.blit(self.Gun2.image, self.Gun2.rect)
+		for b in self.bullets:
+			self.screen.blit(b.image, b.rect)
+		for e in self.enemies:
+			self.screen.blit(e.image, e.rect)
 		pygame.display.flip()
