@@ -41,11 +41,12 @@ class Player2ConnectionProtocol(Protocol):
 		self.handler.connection = self
 
 	def dataReceived(self, data):
-		data = json.loads(data)
-		self.handler.gameData = data
-		if(self.handler.started == 0):
-			self.handler.startGame()
-			self.handler.started = 1
+		if len(data) != 6:
+			data = json.loads(data)
+			self.handler.gameData = data
+			if(self.handler.started == 0):
+				self.handler.startGame()
+				self.handler.started = 1
 
 #Protocol for command connection
 class InitialConnectionProtocol(Protocol):
@@ -59,10 +60,10 @@ class InitialConnectionProtocol(Protocol):
 	def dataReceived(self, data):
 		data = int(data[0])
 		if(data == 1):
-			reactor.connectTCP('student00.cse.nd.edu', 32001, Player1ConnectionFactory(self.handler))
+			reactor.connectTCP('localhost', 32001, Player1ConnectionFactory(self.handler))
 			self.handler.playerID = 1
 		if(data == 2):
-			reactor.connectTCP('student00.cse.nd.edu', 32002, Player2ConnectionFactory(self.handler))
+			reactor.connectTCP('localhost', 32002, Player2ConnectionFactory(self.handler))
 			self.handler.playerID = 2
 		
 
@@ -117,7 +118,7 @@ gameHandler = GameHandler()
 initialConnectionFactory = InitialConnectionFactory(gameHandler)	
 
 #Create command connection to home									
-reactor.connectTCP('student00.cse.nd.edu', 32000, initialConnectionFactory)
+reactor.connectTCP('localhost', 32000, initialConnectionFactory)
 	
 #Start event loop									
 reactor.run()

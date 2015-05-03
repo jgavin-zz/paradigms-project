@@ -125,25 +125,29 @@ class EnemyData:
 			angle = self.angle + 90
 			angle = radians(angle)
 
-			self.xcenter = self.xcenter + int( cos(angle) * 20 )
-			self.ycenter = self.ycenter - int( sin(angle) * 20 )
+			self.xcenter = self.xcenter + int( (cos(angle) * 20)/15 )
+			self.ycenter = self.ycenter - int( (sin(angle) * 20)/15 )
+
+	def getPos(self):
+		return self.xcenter, self.ycenter	
 		
 
 class BulletData:
 
-	def __init__(self, bulletID, playerID, playerxcenter, playerycenter, angle, gunLength):
+	def __init__(self, bulletID, playerID, playerxcenter, playerycenter, angle, gunLength, btype = 0):
 
 		self.bulletID = bulletID
 		self.playerID = playerID
 		self.xcenter = 0
 		self.ycenter = 0
-		self.vx = 0
-		self.vy = 0
+		self.vx = 0.0
+		self.vy = 0.0
 		self.angle = degrees(angle) + 90
 		self.alive = 1
 
 		self.setInitialPosition(playerxcenter, playerycenter, angle, gunLength)
 		self.setInitialVelocity(angle)
+		self.type = btype
 
 	def setInitialPosition(self, playerxcenter, playerycenter, angle, gunLength):
 	
@@ -156,13 +160,16 @@ class BulletData:
 
 	def setInitialVelocity(self, angle):
 
-		self.vx = cos(angle) * 10
-		self.vy = sin(angle) * 10
+		self.vx = (cos(angle) * 10)/6
+		self.vy = (sin(angle) * 10)/6
 
 	def move(self):
 
 		self.xcenter = int(self.xcenter - self.vx)
 		self.ycenter = int(self.ycenter + self.vy)
+
+	def getPos(self):
+		return self.xcenter,self.ycenter
 
 	
 #Handler which holds copies of every connection and handles all interaction between connections
@@ -180,6 +187,12 @@ class GameHandler:
 		self.player1y = 100
 		self.player2x = 200
 		self.player2y = 200
+		
+		self.player1health = 3
+		self.player2health = 3
+
+		self.player1alive = 1
+		self.player2alive = 1
 
 		self.player1GunAngle = 270
 		self.player2GunAngle = 270
@@ -197,6 +210,9 @@ class GameHandler:
 
 		self.gamecounter = 0
 		
+		self.check = 0
+		self.IDcount = 0
+		self.eCount = 0
 
 	def tellPlayersToStart(self):
 		self.sendGameData(1)
@@ -205,9 +221,10 @@ class GameHandler:
 	def processPlayer1Events(self, events):
 		self.gamecounter = self.gamecounter + 1
 		
-		if(self.gamecounter%25 == 0):
-			self.enemies.append(EnemyData(len(self.enemies) + 1))
+		if(self.gamecounter%500 == 0 or self.gamecounter == 10):
+			self.enemies.append(EnemyData(self.eCount))
 			self.enemies[len(self.enemies) - 1].setTarget(self.player1x, self.player1y, self.player2x, self.player2y)
+			self.eCount+=1
 
 		mx = events['mx']
 		my = events['my']
@@ -215,7 +232,7 @@ class GameHandler:
 		#	self.exitGame()
 
 		direction = events["keyPressed"]
-		if( direction != '' ):
+		if( direction != '' and self.player1alive):
 			self.movePlayer(1, direction)
 
 		self.computeAngle(1, mx, my)
@@ -224,13 +241,55 @@ class GameHandler:
 		for b in self.bullets:
 			if(b.playerID == 1 and b.alive == 1):
 				b.move()
+				bulletX, bulletY = b.getPos()
+				if self.player2alive:
+					if bulletX >= self.player2x - 30 and bulletX <= self.player2x + 30:
+						if bulletY >= self.player2y - 20 and bulletY <= self.player2y + 20:
+							self.bullets.remove(b)
+							self.player2health -=1
+							if self.player2health == 0:
+								self.player2alive = 0
+							continue
+						
+					if bulletX <= 0 or bulletY <= 0 or bulletX >= 500 or bulletY >= 400:
+						self.bullets.remove(b)
 
-		if( events["mouseEvent"] == 'Pressed' ):
-			self.bullets.append( BulletData(len(self.bullets) + 1, 1, self.player1x, self.player1y, self.r1Angle, self.gunLength))
+				for e in self.enemies:
+						if bulletX >= e.xcenter - 20 and bulletX <= e.xcenter + 20:
+							if bulletY >= e.ycenter - 10 and bulletY <= e.ycenter + 10:
+								self.bullets.remove(b)
+								self.enemies.remove(e)	
+								continue	
+			if (b.type == 3):
+				 bulletX, bulletY = b.getPos()
+				 if self.player2alive:
+				 	if bulletX >= self.player2x - 30 and bulletX <= self.player2x + 30:
+						if bulletY >= self.player2y - 20 and bulletY <= self.player2y + 20:
+							self.bullets.remove(b)
+							self.player2health -=1
+							if self.player2health == 0:
+								self.player2alive = 0
+							continue
+					if bulletX <= 0 or bulletY <= 0 or bulletX >= 500 or bulletY >= 400:
+						self.bullets.remove(b)
+
+		if( events["mouseEvent"] == 'Pressed' and self.player1alive):
+			self.bullets.append( BulletData(self.IDcount, 1, self.player1x, self.player1y, self.r1Angle, self.gunLength))
+			self.IDcount+=1
 
 		for e in self.enemies:
+			if self.player1alive and self.player2alive:
+				e.setTarget(self.player1x, self.player1y, self.player2x, self.player2y)
+			elif self.player1alive:
+				e.target = 1
+			elif self.player2alive:
+				e.target = 2
 			if(e.target == 1 and e.alive == 1):
 				e.move(self.player1x, self.player1y)
+				if(random.randrange(0,100,1) == 1):
+					if self.player1alive:
+						self.enemyFire(e.getPos(),1,3)
+			
 
 		self.sendGameData(1)
 		return
@@ -240,22 +299,66 @@ class GameHandler:
 		my = events['my']
 
 		direction = events["keyPressed"]
-		if( direction != '' ):
+		if( direction != '' and self.player2alive):
 			self.movePlayer(2, direction)
 
 		self.computeAngle(2, mx, my)
 
-		#Move bullets
+		
 		for b in self.bullets:
 			if(b.playerID == 2 and b.alive == 1):
 				b.move()
+				bulletX, bulletY = b.getPos()
+				if self.player1alive:
+					if bulletX >= self.player1x - 30 and bulletX <= self.player1x + 30:
+						if bulletY >= self.player1y - 20 and bulletY <= self.player1y + 20:
+							self.bullets.remove(b)
+							self.player1health -=1
+							if self.player1health == 0:
+								self.player1alive = 0
+							continue
+						
+					if bulletX <= 0 or bulletY <= 0 or bulletX >= 500 or bulletY >= 400:
+						self.bullets.remove(b)
+				
+				for e in self.enemies:
+						if bulletX >= e.xcenter - 20 and bulletX < e.xcenter + 20:
+							if bulletY >= e.ycenter - 10 and bulletY <= e.ycenter + 10:
+								self.bullets.remove(b)
+								self.enemies.remove(e)
+								continue				
+	
+			elif (b.type == 3):
+				bulletX, bulletY = b.getPos()
+				if self.player1alive:
+					if bulletX >= self.player1x - 30 and bulletX <= self.player1x + 30:
+						if bulletY >= self.player1y - 20 and bulletY <= self.player1y + 20:
+							self.bullets.remove(b)
+							self.player1health -=1
+							if self.player1health == 0:
+								self.player1alive = 0
+							continue
 
-		if( events["mouseEvent"] == 'Pressed' ):
-			self.bullets.append( BulletData(len(self.bullets) + 1, 2, self.player2x, self.player2y, self.r2Angle, self.gunLength))
+				if bulletX <= 0 or bulletY <= 0 or bulletX >= 500 or bulletY >= 400:
+					self.bullets.remove(b)
+		#Move bullets
+		if( events["mouseEvent"] == 'Pressed' and self.player2alive):
+			self.bullets.append( BulletData(self.IDcount, 2, self.player2x, self.player2y, self.r2Angle, self.gunLength))
+			self.IDcount+=1
 
 		for e in self.enemies:
+			if self.player1alive and self.player2alive:
+				e.setTarget(self.player1x, self.player1y, self.player2x, self.player2y)
+			elif self.player1alive:
+				e.target = 1
+			elif self.player2alive:
+				e.target = 2
 			if(e.target == 2 and e.alive == 1):
 				e.move(self.player2x, self.player2y)
+				if(random.randrange(0,100,1) == 1):
+					if self.player2alive:
+						self.enemyFire(e.getPos(),2,3)
+		
 
 		self.sendGameData(2)
 		return
@@ -316,6 +419,19 @@ class GameHandler:
 		self.player1Connection.transport.write(data)
 		self.player2Connection.transport.write(data)
 
+	def enemyFire(self,enemyPos,playerID,bID):
+		enemyX,enemyY = enemyPos
+		if playerID == 1:
+			dx = self.player1x - enemyX
+			dy = self.player1y - enemyY
+		else:
+			dx = self.player2x - enemyX
+			dy = self.player2y - enemyY
+		angle = atan2(dy, -dx)
+
+		self.bullets.append(BulletData(self.IDcount, playerID, enemyX, enemyY, angle, self.gunLength,bID))
+		self.IDcount += 1
+
 	def sendGameData(self, playerID):
 
 		data = {}
@@ -323,6 +439,8 @@ class GameHandler:
 		data['player1y'] = self.player1y
 		data['player2x'] = self.player2x
 		data['player2y'] = self.player2y
+		data['player1alive'] = self.player1alive
+		data['player2alive'] = self.player2alive
 		data['exit'] = 0
 
 		if(playerID == 1):
@@ -333,22 +451,18 @@ class GameHandler:
 		data['player1Angle'] = self.player1Angle
 		data['player2Angle'] = self.player2Angle
 
-		data['bullets'] = []
-		for b in self.bullets:
-			data['bullets'].append({'bulletID' : b.bulletID, 'x':b.xcenter, 'y':b.ycenter, 'angle':b.angle})
-
 		data['enemies'] = []
 		for e in self.enemies:
 			data['enemies'].append({'enemyID' : e.enemyID, 'x':e.xcenter, 'y':e.ycenter, 'angle':e.angle})
-		
-
+		data['bullets'] = []
+		for b in self.bullets:
+			data['bullets'].append({'bulletID' : b.bulletID, 'x':b.xcenter, 'y':b.ycenter, 'angle':b.angle,'playerID':b.playerID})
+				
 		data = json.dumps(data)
-		
-		if(playerID == 1):
+		if playerID == 1:
 			self.player1Connection.transport.write(data)
-		if(playerID == 2):
+		if playerID == 2:
 			self.player2Connection.transport.write(data)
-	
 
 #Create connectionHandler and pass it to factories
 gameHandler = GameHandler()

@@ -28,13 +28,13 @@ class EventPackage:
 		self.connection = connection
 
 	def addKeyEvent(self, keycode):
-		if keycode == K_d:
+		if keycode == K_RIGHT:
 			self.handler['keyPressed'] = "Right"
-		if keycode == K_a:
+		if keycode == K_LEFT:
 			self.handler['keyPressed'] = "Left"
-		if keycode == K_w:
+		if keycode == K_UP:
 			self.handler['keyPressed'] = "Up"
-		if keycode == K_s:
+		if keycode == K_DOWN:
 			self.handler['keyPressed'] = "Down"		
 
 	def setMousePressed(self):
@@ -135,10 +135,10 @@ class Gun2(pygame.sprite.Sprite):
 			self.rect = self.image.get_rect(center=center)
 
 class Bullet(pygame.sprite.Sprite):
-	def __init__(self, x, y, angle):
+	def __init__(self, x, y, angle, ID):
 		pygame.sprite.Sprite.__init__(self)
 		self.image = pygame.image.load("blueBullet.jpg")
-		#self.image = pygame.transform.scale(self.image, (8, 16))
+		self.image = pygame.transform.scale(self.image, (10, 10))
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
 		center = self.rect.center
@@ -146,10 +146,11 @@ class Bullet(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect(center=center)
 		self.rect.centerx = x
 		self.rect.centery = y
+		self.ID = ID
 		# keep original image to limit resize errors
 
 class Enemy(pygame.sprite.Sprite):
-	def __init__(self, x, y, angle):
+	def __init__(self, x, y, angle,ID):
 		pygame.sprite.Sprite.__init__(self)
 		self.image = pygame.image.load("soldier.jpg")
 		self.image = pygame.transform.scale(self.image, (20, 40))
@@ -160,6 +161,7 @@ class Enemy(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect(center=center)
 		self.rect.centerx = x
 		self.rect.centery = y	
+		self.ID = ID
 			
 
 class GameSpace:
@@ -173,7 +175,8 @@ class GameSpace:
 
 	
 	def updateGameData(self, data):
-
+		bulletID = []
+		enemyID = []
 		#Update Player Positions
 		self.Player1.rect.centerx = data['player1x']
 		self.Player1.rect.centery = data['player1y']
@@ -209,25 +212,38 @@ class GameSpace:
 
 		#Update Bullets
 		for b in data['bullets']:
-			if( b['bulletID'] > len(self.bullets) ):
-				self.bullets.append(Bullet(b['x'], b['y'], b['angle']))
-			else:
-				self.bullets[b['bulletID'] - 1].rect.centerx = b['x']
-				self.bullets[b['bulletID'] - 1].rect.centery = b['y']
+			bulletID.append(b['bulletID'])
+			check = 1
+			for l in self.bullets:
+				if b['bulletID'] == l.ID:
+					l.rect.centerx = b['x']
+					l.rect.centery = b['y']
+					check = 0
+			if check:
+				self.bullets.append(Bullet(b['x'], b['y'], b['angle'], b['bulletID']))			 
+
+		for b in self.bullets:
+			if b.ID not in bulletID:
+				self.bullets.remove(b) 
 
 		#Update Enemies
 		for e in data['enemies']:
-			if( e['enemyID'] > len(self.enemies) ):
-				self.enemies.append(Enemy(e['x'], e['y'], e['angle']))
-			else:
-				self.enemies[e['enemyID'] - 1].rect.centerx = e['x']
-				self.enemies[e['enemyID'] - 1].rect.centery = e['y']
-
-				self.enemies[e['enemyID'] - 1].image = pygame.transform.rotate(self.enemies[e['enemyID'] - 1].orig_image, e['angle'])
-				center = self.enemies[e['enemyID'] - 1].rect.center
-				self.enemies[e['enemyID'] - 1].rect = self.enemies[e['enemyID'] - 1].image.get_rect(center=center)
+			enemyID.append(e['enemyID'])
+			check = 1
+			for l in self.enemies:
+				if e['enemyID'] == l.ID:
+					l.rect.centerx = e['x']
+					l.rect.centery = e['y']
+					l.image = pygame.transform.rotate(l.orig_image, e['angle'])
+					center = l.rect.center
+					l.rect = l.image.get_rect(center=center)
+					check = 0
+			if check:
+				self.enemies.append(Enemy(e['x'], e['y'], e['angle'], e['enemyID']))	
 		
-		
+		for e in self.enemies:
+			if e.ID not in enemyID:
+				self.enemies.remove(e) 
 		
 
 
@@ -280,20 +296,25 @@ class GameSpace:
 
 
 		#Send ticks to objects
-		self.Gun1.tick()
-		self.Gun2.tick()
-		self.Player1.tick()
-		self.Player2.tick()
+		if newData['player1alive']:
+			self.Gun1.tick()
+			self.Player1.tick()
+		if newData['player2alive']:
+			self.Player2.tick()
+			self.Gun2.tick()
 
 		#Blit objects to screen
 		self.screen.fill(self.black)
 		self.screen.blit(self.background.image, self.background.rect)
-		self.screen.blit(self.Player1.image, self.Player1.rect)
-		self.screen.blit(self.Gun1.image, self.Gun1.rect)
-		self.screen.blit(self.Player2.image, self.Player2.rect)
-		self.screen.blit(self.Gun2.image, self.Gun2.rect)
+		if newData['player1alive']:
+			self.screen.blit(self.Player1.image, self.Player1.rect)
+			self.screen.blit(self.Gun1.image, self.Gun1.rect)
+		if newData['player2alive']:
+			self.screen.blit(self.Player2.image, self.Player2.rect)
+			self.screen.blit(self.Gun2.image, self.Gun2.rect)
 		for b in self.bullets:
 			self.screen.blit(b.image, b.rect)
 		for e in self.enemies:
 			self.screen.blit(e.image, e.rect)
+			print "test",e.rect.centerx, e.rect.centery
 		pygame.display.flip()
