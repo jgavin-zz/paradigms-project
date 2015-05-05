@@ -24,6 +24,9 @@ class Player1ConnectionProtocol(Protocol):
 	def connectionMade(self):
 		self.handler.connection = self
 
+	def connectionLost(self, reason):
+       		reactor.stop()
+
 	def dataReceived(self, data):
 		data = json.loads(data)
 		self.handler.gameData = data
@@ -40,13 +43,16 @@ class Player2ConnectionProtocol(Protocol):
 	def connectionMade(self):
 		self.handler.connection = self
 
+	def connectionLost(self, reason):
+       		reactor.stop()
+
 	def dataReceived(self, data):
-		if len(data) != 6:
-			data = json.loads(data)
-			self.handler.gameData = data
-			if(self.handler.started == 0):
-				self.handler.startGame()
-				self.handler.started = 1
+		data = json.loads(data)
+		self.handler.gameData = data
+		if(self.handler.started == 0):
+			self.handler.startGame()
+			self.handler.started = 1
+
 
 #Protocol for command connection
 class InitialConnectionProtocol(Protocol):
@@ -55,16 +61,21 @@ class InitialConnectionProtocol(Protocol):
 		self.handler = handler
 
 	def connectionMade(self):
-		self.handler.tempconnection  = self
+		self.handler.connection  = self
 
 	def dataReceived(self, data):
 		data = int(data[0])
 		if(data == 1):
 			reactor.connectTCP('localhost', 32001, Player1ConnectionFactory(self.handler))
 			self.handler.playerID = 1
+			self.handler.startScreen1()
 		if(data == 2):
 			reactor.connectTCP('localhost', 32002, Player2ConnectionFactory(self.handler))
 			self.handler.playerID = 2
+			self.handler.startScreen1()
+		if(data == 3):
+			self.handler.startScreen2()
+		
 		
 
 #Factory for initial connection factory
@@ -108,10 +119,17 @@ class GameHandler:
 		self.started = 0
 		self.playerID = ''
 		self.gameData = {}
+		self.gs = ""
 
+	def startScreen1(self):
+		self.gs = GameSpace(self)
+		self.gs.startScreen(self,1)
+
+	def startScreen2(self):
+		self.gs.startScreen(self,2)
+	
 	def startGame(self):
-		gs = GameSpace(self)
-		gs.main()
+		self.gs.main(self)
 
 #Instantiate handler and pass to command factory
 gameHandler = GameHandler()										

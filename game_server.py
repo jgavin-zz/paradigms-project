@@ -28,6 +28,13 @@ class TempProtocol(LineReceiver):
 			self.sendLine("2")
 		return
 
+	def dataReceived(self, data):
+		if data == "Clicked":
+			self.handler.playersStarted += 1
+			self.sendLine("3")
+		if self.handler.playersStarted == 2:
+			self.handler.started = 1
+
 #Protocol for player1 connection
 class Player1Protocol(LineReceiver):
 
@@ -36,6 +43,9 @@ class Player1Protocol(LineReceiver):
 
     	def connectionMade(self):
 		self.handler.player1Connection = self
+		if self.handler.started:
+			self.handler.tellPlayersToStart()
+			self.handler.started = 0
 
 	def dataReceived(self, data):
 		data = json.loads(data)
@@ -50,7 +60,9 @@ class Player2Protocol(LineReceiver):
 
     	def connectionMade(self):
 		self.handler.player2Connection = self
-		self.handler.tellPlayersToStart()
+		if self.handler.started:
+			self.handler.tellPlayersToStart()
+			self.handler.started = 0
 		return
 
 	def dataReceived(self, data):
@@ -180,6 +192,7 @@ class GameHandler:
 	def __init__(self):
 
 		self.connectionMade = 0
+		self.playersStarted = 0
 		self.player1Connection = ''
 		self.player2Connection = ''
 
@@ -214,6 +227,8 @@ class GameHandler:
 		self.IDcount = 0
 		self.eCount = 0
 
+		self.started = 0
+
 	def tellPlayersToStart(self):
 		self.sendGameData(1)
 		self.sendGameData(2)
@@ -225,6 +240,12 @@ class GameHandler:
 			self.enemies.append(EnemyData(self.eCount))
 			self.enemies[len(self.enemies) - 1].setTarget(self.player1x, self.player1y, self.player2x, self.player2y)
 			self.eCount+=1
+
+		if events['exit'] == "1":
+			self.player1Connection.transport.loseConnection()
+			self.player2Connection.transport.loseConnection()
+			reactor.stop()
+			return
 
 		mx = events['mx']
 		my = events['my']
@@ -295,6 +316,11 @@ class GameHandler:
 		return
 
 	def processPlayer2Events(self, events):
+		if events['exit'] == "1":
+			self.player1Connection.transport.loseConnection()
+			self.player2Connection.transport.loseConnection()
+			reactor.stop()
+			return
 		mx = events['mx']
 		my = events['my']
 

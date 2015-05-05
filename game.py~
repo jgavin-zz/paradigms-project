@@ -45,17 +45,16 @@ class EventPackage:
 		self.handler['my'] = my
 
 	def setExit(self):
-		self.handler['exit'] = 1
+		self.handler['exit'] = "1"
 
 	def send(self):
 		data = json.dumps(self.handler)
 		self.connection.transport.write(data)
 
 class Background(pygame.sprite.Sprite):
-	def __init__(self, gs=None):
+	def __init__(self, image_name):
 		pygame.sprite.Sprite.__init__(self)
-		self.gs = gs
-		self.image = pygame.image.load("grass-texture.jpg")
+		self.image = pygame.image.load(image_name)
 		self.image = pygame.transform.scale(self.image, (650, 500))
 		self.rect = self.image.get_rect()
 
@@ -72,7 +71,7 @@ class PlayerTag(pygame.sprite.Sprite):
 			self.image = pygame.image.load("player2Tag.png")
 			self.image = pygame.transform.scale(self.image, (100, 20))
 			self.rect = self.image.get_rect()
-			self.rect.x = 450
+			self.rect.x = 475
 			self.rect.y = 10
 
 
@@ -193,7 +192,6 @@ class Healthbar(pygame.sprite.Sprite):
 		self.orig_y = y
 		self.rect.x = x
 		self.rect.y = y
-			
 
 class GameSpace:
 
@@ -293,11 +291,10 @@ class GameSpace:
 		self.player2HealthBar.rect.x = self.player2HealthBar.orig_x
 		self.player2HealthBar.rect.y = self.player2HealthBar.orig_y
 		
-
-
-	#Main function which drives gameplay
-	def main(self):
-
+	def startScreen(self,handler,Type):
+		self.connection = handler.connection
+		self.playerID = handler.playerID
+		self.handler = handler
 		#Initialize basic game information
 		pygame.init()
 		self.size = self.width, self.height = 650, 500
@@ -306,20 +303,64 @@ class GameSpace:
 		pygame.display.set_caption("Player " + str(self.playerID))
 
 		#Initialize game objects
-		self.background = Background(self)
+		self.background = Background("startscreen1.jpg")
 		self.Player1 = Player1(self)
 		self.Gun1 = Gun1(self)
 		self.Player2 = Player2(self)
 		self.Gun2 = Gun2(self)
+		check2 = True
+		self.screen.fill(self.black)		
+		self.screen.blit(self.background.image, self.background.rect)	
+		if Type == 2:	
+			self.background = Background("startscreen2.jpg")
+		if self.playerID == 1:
+			self.Player1.rect.centerx = 100
+			self.Player1.rect.centery = 100
+			self.Gun1.rect.centerx = 100
+			self.Gun1.rect.centery = 100
+			self.Gun1.image = pygame.transform.rotate(self.Gun1.orig_image, 270)
+			center = self.Gun1.rect.center
+			self.Gun1.rect = self.Gun1.image.get_rect(center=center)
+			self.Player1.image = pygame.transform.rotate(self.Player1.orig_image, 90)
+			center = self.Player1.rect.center
+			self.Player1.rect = self.Player1.image.get_rect(center=center)
+			self.screen.blit(self.Player1.image, self.Player1.rect)
+			self.screen.blit(self.Gun1.image, self.Gun1.rect)
+		else:
+			self.Player2.rect.centerx = 200
+			self.Player2.rect.centery = 200
+			self.Gun2.rect.centerx = 200
+			self.Gun2.rect.centery = 200
+			self.Gun2.image = pygame.transform.rotate(self.Gun2.orig_image, 270)
+			center = self.Gun2.rect.center
+			self.Gun2.rect = self.Gun2.image.get_rect(center=center)
+			self.Player2.image = pygame.transform.rotate(self.Player2.orig_image, 90)
+			center = self.Player2.rect.center
+			self.Player2.rect = self.Player2.image.get_rect(center=center)
+			self.screen.blit(self.Player2.image, self.Player2.rect)
+			self.screen.blit(self.Gun2.image, self.Gun2.rect)
+		pygame.display.flip()	
+		if Type == 1:
+			while 1:
+				for event in pygame.event.get():
+					if event.type == MOUSEBUTTONDOWN:
+						mx,my = pygame.mouse.get_pos()
+						if (mx > 175 and mx < 475 and my > 210 and my < 310):
+							self.connection.transport.write("Clicked")
+							return
+
+	#Main function which drives gameplay
+	def main(self,handler):
+		self.background = Background("grass-texture.jpg")
+		self.connection = handler.connection
+		self.playerID = handler.playerID
+		self.handler = handler
+		self.bullets = []
+		self.enemies = []
 		self.player1HealthBar = Healthbar(25, 35)
 		self.player2HealthBar = Healthbar(425, 35)
 		self.player1Tag = PlayerTag(1)
 		self.player2Tag = PlayerTag(2)
-		self.bullets = []
-		self.enemies = []
-		self.original_health = 10
-		check2 = True
-
 		pygame.key.set_repeat(1, 500)
 		#Initiate game loop
 		lc = task.LoopingCall(self.gameLoop)
@@ -342,6 +383,9 @@ class GameSpace:
 				self.event_package.setMousePressed()
 			if event.type == pygame.QUIT:
 				self.event_package.setExit()
+				self.event_package.setExit()
+				pygame.quit()
+				self.event_package.send()
 				return
 
 		keys = pygame.key.get_pressed()
