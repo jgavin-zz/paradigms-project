@@ -28,13 +28,13 @@ class EventPackage:
 		self.connection = connection
 
 	def addKeyEvent(self, keycode):
-		if keycode == K_RIGHT:
+		if keycode == K_d:
 			self.handler['keyPressed'] = "Right"
-		if keycode == K_LEFT:
+		if keycode == K_a:
 			self.handler['keyPressed'] = "Left"
-		if keycode == K_UP:
+		if keycode == K_w:
 			self.handler['keyPressed'] = "Up"
-		if keycode == K_DOWN:
+		if keycode == K_s:
 			self.handler['keyPressed'] = "Down"		
 
 	def setMousePressed(self):
@@ -56,14 +56,32 @@ class Background(pygame.sprite.Sprite):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
 		self.image = pygame.image.load("grass-texture.jpg")
+		self.image = pygame.transform.scale(self.image, (650, 500))
 		self.rect = self.image.get_rect()
+
+class PlayerTag(pygame.sprite.Sprite):
+	def __init__(self, ID):
+		pygame.sprite.Sprite.__init__(self)
+		if(ID == 1):
+			self.image = pygame.image.load("player1Tag.png")
+			self.image = pygame.transform.scale(self.image, (100, 20))
+			self.rect = self.image.get_rect()
+			self.rect.x = 75
+			self.rect.y = 10
+		elif(ID == 2):
+			self.image = pygame.image.load("player2Tag.png")
+			self.image = pygame.transform.scale(self.image, (100, 20))
+			self.rect = self.image.get_rect()
+			self.rect.x = 450
+			self.rect.y = 10
+
 
 
 class Player1(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
-		self.image = pygame.image.load("Hutchkiss.png")
+		self.image = pygame.image.load("Hutchkiss.jpg")
 		self.rect = self.image.get_rect()
 		self.orig_image = self.image
 
@@ -76,7 +94,7 @@ class Player2(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
-		self.image = pygame.image.load("Panzer.png")
+		self.image = pygame.image.load("Panzer.jpg")
 		self.rect = self.image.get_rect()
 		self.orig_image = self.image
 
@@ -162,6 +180,19 @@ class Enemy(pygame.sprite.Sprite):
 		self.rect.centerx = x
 		self.rect.centery = y	
 		self.ID = ID
+
+class Healthbar(pygame.sprite.Sprite):
+	def __init__(self, x, y):
+		pygame.sprite.Sprite.__init__(self)
+		self.image = pygame.image.load("healthBar.jpg")
+		self.image = pygame.transform.scale(self.image, (200, 10))
+		self.orig_width = 200
+		self.orig_image = self.image
+		self.rect = self.image.get_rect()
+		self.orig_x = x
+		self.orig_y = y
+		self.rect.x = x
+		self.rect.y = y
 			
 
 class GameSpace:
@@ -244,6 +275,23 @@ class GameSpace:
 		for e in self.enemies:
 			if e.ID not in enemyID:
 				self.enemies.remove(e) 
+
+		#Update health bar
+		self.player1Health = data['player1Health']
+		r1 = float(self.player1Health) / 10
+		new_width1 = int(self.player1HealthBar.orig_width * r1)
+		self.player1HealthBar.image = pygame.transform.scale(self.player1HealthBar.orig_image, (new_width1, 10))
+		self.player1HealthBar.rect = self.player1HealthBar.image.get_rect()
+		self.player1HealthBar.rect.x = self.player1HealthBar.orig_x
+		self.player1HealthBar.rect.y = self.player1HealthBar.orig_y
+
+		self.player2Health = data['player2Health']
+		r2 = float(self.player2Health) / 10
+		new_width2 = int(self.player2HealthBar.orig_width * r2)
+		self.player2HealthBar.image = pygame.transform.scale(self.player2HealthBar.orig_image, (new_width2, 10))
+		self.player2HealthBar.rect = self.player2HealthBar.image.get_rect()
+		self.player2HealthBar.rect.x = self.player2HealthBar.orig_x
+		self.player2HealthBar.rect.y = self.player2HealthBar.orig_y
 		
 
 
@@ -252,7 +300,7 @@ class GameSpace:
 
 		#Initialize basic game information
 		pygame.init()
-		self.size = self.width, self.height = 500, 400
+		self.size = self.width, self.height = 650, 500
 		self.black = 0, 0, 0
 		self.screen = pygame.display.set_mode(self.size)
 		pygame.display.set_caption("Player " + str(self.playerID))
@@ -263,17 +311,23 @@ class GameSpace:
 		self.Gun1 = Gun1(self)
 		self.Player2 = Player2(self)
 		self.Gun2 = Gun2(self)
+		self.player1HealthBar = Healthbar(25, 35)
+		self.player2HealthBar = Healthbar(425, 35)
+		self.player1Tag = PlayerTag(1)
+		self.player2Tag = PlayerTag(2)
 		self.bullets = []
 		self.enemies = []
+		self.original_health = 10
 		check2 = True
 
-		pygame.key.set_repeat()
+		pygame.key.set_repeat(1, 500)
 		#Initiate game loop
 		lc = task.LoopingCall(self.gameLoop)
 		lc.start(.01)
 		if self.handler.gameData['exit']:
 			lc.stop()
 			reactor.stop()
+			pygame.quit()
 
 	def gameLoop(self):
 
@@ -284,12 +338,23 @@ class GameSpace:
 		#Add user input events to event package and send package to server
 		self.event_package = EventPackage(self.connection)
 		for event in pygame.event.get():
-			if event.type == KEYDOWN:
-				self.event_package.addKeyEvent(event.key)
 			if event.type == MOUSEBUTTONDOWN:
 				self.event_package.setMousePressed()
 			if event.type == pygame.QUIT:
 				self.event_package.setExit()
+				return
+
+		keys = pygame.key.get_pressed()
+		if(keys[K_a]):
+			self.event_package.addKeyEvent(K_a)
+		if(keys[K_w]):
+			self.event_package.addKeyEvent(K_w)
+		if(keys[K_s]):
+			self.event_package.addKeyEvent(K_s)
+		if(keys[K_d]):
+			self.event_package.addKeyEvent(K_d)
+	
+	
 		mx, my = pygame.mouse.get_pos()
 		self.event_package.setMouseCoordinates(mx, my)
 		self.event_package.send()
@@ -316,5 +381,8 @@ class GameSpace:
 			self.screen.blit(b.image, b.rect)
 		for e in self.enemies:
 			self.screen.blit(e.image, e.rect)
-			print "test",e.rect.centerx, e.rect.centery
+		self.screen.blit(self.player1HealthBar.image, self.player1HealthBar.rect)
+		self.screen.blit(self.player2HealthBar.image, self.player2HealthBar.rect)
+		self.screen.blit(self.player1Tag.image, self.player1Tag.rect)
+		self.screen.blit(self.player2Tag.image, self.player2Tag.rect)
 		pygame.display.flip()

@@ -188,8 +188,8 @@ class GameHandler:
 		self.player2x = 200
 		self.player2y = 200
 		
-		self.player1health = 3
-		self.player2health = 3
+		self.player1health = 10
+		self.player2health = 10
 
 		self.player1alive = 1
 		self.player2alive = 1
@@ -366,34 +366,34 @@ class GameHandler:
 	def movePlayer(self, playerID, direction):
 		if(direction == 'Right'):
 			if playerID == 1:
-				self.player1x = self.player1x + 10
+				self.player1x = self.player1x + 1
 				self.player1Angle = 90
 			if playerID == 2:
-				self.player2x = self.player2x + 10
+				self.player2x = self.player2x + 1
 				self.player2Angle = 90
 
 		if(direction == 'Left'):
 			if playerID == 1:
-				self.player1x = self.player1x - 10
+				self.player1x = self.player1x - 1
 				self.player1Angle = 270
 			if playerID == 2:
-				self.player2x = self.player2x - 10
+				self.player2x = self.player2x - 1
 				self.player2Angle = 270
 
 		if(direction == 'Up'):
 			if playerID == 1:
-				self.player1y = self.player1y - 10
+				self.player1y = self.player1y - 1
 				self.player1Angle = 180
 			if playerID == 2:
-				self.player2y = self.player2y - 10
+				self.player2y = self.player2y - 1
 				self.player2Angle = 180
 
 		if(direction == 'Down'):
 			if playerID == 1:
-				self.player1y = self.player1y + 10
+				self.player1y = self.player1y + 1
 				self.player1Angle = 0
 			if playerID == 2:
-				self.player2y = self.player2y + 10
+				self.player2y = self.player2y + 1
 				self.player2Angle = 0
 
 		return
@@ -449,7 +449,9 @@ class GameHandler:
 			data['partnerGunAngle'] = self.player1GunAngle
 
 		data['player1Angle'] = self.player1Angle
+		print self.player1Angle
 		data['player2Angle'] = self.player2Angle
+		print self.player2Angle
 
 		data['enemies'] = []
 		for e in self.enemies:
@@ -457,6 +459,9 @@ class GameHandler:
 		data['bullets'] = []
 		for b in self.bullets:
 			data['bullets'].append({'bulletID' : b.bulletID, 'x':b.xcenter, 'y':b.ycenter, 'angle':b.angle,'playerID':b.playerID})
+
+		data['player1Health'] = self.player1health
+		data['player2Health'] = self.player2health
 				
 		data = json.dumps(data)
 		if playerID == 1:
