@@ -276,7 +276,7 @@ class GameHandler:
 
 		self.started = 0
 
-		self.number = 500
+		self.number = 100
 
 		self.restartCheck = 0
 
