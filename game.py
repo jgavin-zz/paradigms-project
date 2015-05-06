@@ -16,6 +16,7 @@ from math import *
 
 import cPickle as pickle
 import json
+import time
 
 class EventPackage:
 	def __init__(self, connection):
@@ -57,23 +58,6 @@ class Background(pygame.sprite.Sprite):
 		self.image = pygame.image.load(image_name)
 		self.image = pygame.transform.scale(self.image, (650, 500))
 		self.rect = self.image.get_rect()
-
-class PlayerTag(pygame.sprite.Sprite):
-	def __init__(self, ID):
-		pygame.sprite.Sprite.__init__(self)
-		if(ID == 1):
-			self.image = pygame.image.load("player1Tag.png")
-			self.image = pygame.transform.scale(self.image, (100, 20))
-			self.rect = self.image.get_rect()
-			self.rect.x = 75
-			self.rect.y = 10
-		elif(ID == 2):
-			self.image = pygame.image.load("player2Tag.png")
-			self.image = pygame.transform.scale(self.image, (100, 20))
-			self.rect = self.image.get_rect()
-			self.rect.x = 475
-			self.rect.y = 10
-
 
 
 class Player1(pygame.sprite.Sprite):
@@ -201,11 +185,15 @@ class GameSpace:
 		self.connection = handler.connection
 		self.playerID = handler.playerID
 		self.handler = handler
+		self.playerKills = 0
+		self.timer = 60
 
 	
 	def updateGameData(self, data):
 		bulletID = []
 		enemyID = []
+		if data['time'] == 0:
+			self.gameOver()
 		#Update Player Positions
 		self.Player1.rect.centerx = data['player1x']
 		self.Player1.rect.centery = data['player1y']
@@ -217,6 +205,9 @@ class GameSpace:
 		self.Gun1.rect.centery = data['player1y']
 		self.Gun2.rect.centerx = data['player2x']
 		self.Gun2.rect.centery = data['player2y']
+
+		self.playerKills = data['kills']
+		self.timer = data['time']
 
 		#Update Partner Gun Angle
 		angle = data['partnerGunAngle']
@@ -359,8 +350,23 @@ class GameSpace:
 		self.enemies = []
 		self.player1HealthBar = Healthbar(25, 35)
 		self.player2HealthBar = Healthbar(425, 35)
-		self.player1Tag = PlayerTag(1)
-		self.player2Tag = PlayerTag(2)
+		self.font = pygame.font.SysFont("monospace",15)
+		self.player1tag = self.font.render("Player 1", 1, (255,255,0))
+		self.p1rect = self.player1tag.get_rect()
+		self.p1rect.centerx = 125
+		self.p1rect.centery = 25
+		self.player2tag = self.font.render("Player 2", 1, (255,255,0))
+		self.p2rect = self.player2tag.get_rect()
+		self.p2rect.centerx = 525
+		self.p2rect.centery = 25
+		self.kill = self.font.render("Kills:", 1, (255,255,0))
+		self.killRect = self.kill.get_rect()
+		self.killRect.centerx = 315
+		self.killRect.centery = 50
+		self.time = self.font.render("Time:", 1, (255,255,0))
+		self.timeRect = self.time.get_rect()
+		self.timeRect.centerx = 319
+		self.timeRect.centery = 30
 		pygame.key.set_repeat(1, 500)
 		#Initiate game loop
 		lc = task.LoopingCall(self.gameLoop)
@@ -369,6 +375,11 @@ class GameSpace:
 			lc.stop()
 			reactor.stop()
 			pygame.quit()
+
+	def gameOver(self):
+		self.screen.fill(self.black)
+		pygame.display.flip()	
+		time.sleep(5)
 
 	def gameLoop(self):
 
@@ -415,6 +426,20 @@ class GameSpace:
 		#Blit objects to screen
 		self.screen.fill(self.black)
 		self.screen.blit(self.background.image, self.background.rect)
+		self.screen.blit(self.kill,self.killRect)
+		self.screen.blit(self.time,self.timeRect)
+		self.screen.blit(self.player1tag, self.p1rect)
+		self.screen.blit(self.player2tag, self.p2rect)
+		self.killCount = self.font.render(str(self.playerKills),1,(255,255,0))
+		self.countRect = self.killCount.get_rect()
+		self.countRect.centerx = 350
+		self.countRect.centery = 50
+		self.screen.blit(self.killCount,self.countRect)
+		self.timeCount = self.font.render(str(self.timer),1,(255,255,0))
+		self.tCountRect = self.timeCount.get_rect()
+		self.tCountRect.centerx = 350
+		self.tCountRect.centery = 30
+		self.screen.blit(self.timeCount,self.tCountRect)
 		if newData['player1alive']:
 			self.screen.blit(self.Player1.image, self.Player1.rect)
 			self.screen.blit(self.Gun1.image, self.Gun1.rect)
@@ -427,6 +452,4 @@ class GameSpace:
 			self.screen.blit(e.image, e.rect)
 		self.screen.blit(self.player1HealthBar.image, self.player1HealthBar.rect)
 		self.screen.blit(self.player2HealthBar.image, self.player2HealthBar.rect)
-		self.screen.blit(self.player1Tag.image, self.player1Tag.rect)
-		self.screen.blit(self.player2Tag.image, self.player2Tag.rect)
 		pygame.display.flip()
