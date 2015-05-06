@@ -522,7 +522,7 @@ class GameSpace:
 		self.screen.blit(self.player2tag, self.p2rect)
 		self.killCount = self.font.render(str(self.playerKills),1,(255,255,0))
 		self.countRect = self.killCount.get_rect()
-		self.countRect.centerx = 375
+		self.countRect.centerx = 380
 		self.countRect.centery = 51
 		self.screen.blit(self.killCount,self.countRect)
 		self.OkillCount = self.font.render(str(self.oKills),1,(255,255,0))

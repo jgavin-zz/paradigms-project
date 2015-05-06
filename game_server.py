@@ -15,10 +15,6 @@ import os
 import random
 import time
 
-port1 =  ""
-port2 = ""
-port3 = ""
-
 #Protocol for temp connection
 class TempProtocol(LineReceiver):
 
@@ -207,8 +203,8 @@ class BulletData:
 
 	def setInitialVelocity(self, angle):
 
-		self.vx = (cos(angle) * 10)/6
-		self.vy = (sin(angle) * 10)/6
+		self.vx = (cos(angle) * 10)/4
+		self.vy = (sin(angle) * 10)/4
 
 	def move(self):
 
@@ -276,7 +272,7 @@ class GameHandler:
 
 		self.started = 0
 
-		self.number = 100
+		self.number = 200
 
 		self.restartCheck = 0
 
@@ -338,13 +334,12 @@ class GameHandler:
 
 		self.started = 0
 
-		self.number = 100
+		self.number = 200
 
 		self.restartCheck = 0
 
 	def processPlayer1Events(self, events):
 
-		global port2
 		self.explosions1 = []
 		if events['restart'] == "1":
 			self.player1Connection.sendLine("1")
@@ -445,7 +440,7 @@ class GameHandler:
 									self.bullets.remove(b)
 								if e in self.enemies:
 									self.enemies.remove(e)	
-								if self.number > 20:
+								if self.number > 80:
 									self.number *= .95
 								if b.type != 3:
 									self.player1Kills += 1
@@ -498,7 +493,7 @@ class GameHandler:
 				self.enemies.remove(e)
 				self.player1Kills += 1
 				self.squashSound = 1
-				if self.number > 20:
+				if self.number > 80:
 					self.number *= .95
 			
 
@@ -507,7 +502,6 @@ class GameHandler:
 
 	def processPlayer2Events(self, events):
 
-		global port1, port3
 		self.explosions2 = []
 		if events['restart'] == "1":
 			self.player2Connection.transport.write("1")
@@ -586,7 +580,7 @@ class GameHandler:
 									self.bullets.remove(b)
 								if e in self.enemies:
 									self.enemies.remove(e)
-								if self.number > 20:
+								if self.number > 80:
 									self.number *= .95
 								if b.type != 3:
 									self.player2Kills += 1
@@ -643,7 +637,7 @@ class GameHandler:
 				self.enemies.remove(e)
 				self.player2Kills += 1
 				self.squashSound = 1
-				if self.number > 20:
+				if self.number > 80:
 					self.number *= .95
 				
 			
@@ -819,9 +813,9 @@ player1Factory = Player1Factory(gameHandler)
 player2Factory = Player2Factory(gameHandler)
 
 #Listen For Connections from Work and direct to Command and Client Factories
-port1 = reactor.listenTCP(9300, tempFactory)
-port2 = reactor.listenTCP(9301, player1Factory)
-port3 = reactor.listenTCP(9302, player2Factory)
+reactor.listenTCP(9300, tempFactory)
+reactor.listenTCP(9301, player1Factory)
+reactor.listenTCP(9302, player2Factory)
 
 #Start event loop
 reactor.run()
