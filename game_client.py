@@ -15,6 +15,13 @@ import json
 import sys
 import os
 
+def isInt(s):
+    try: 
+        int(s)
+        return True
+    except ValueError:
+        return False
+
 #Protocol for command connection
 class Player1ConnectionProtocol(Protocol):
 
@@ -24,15 +31,31 @@ class Player1ConnectionProtocol(Protocol):
 	def connectionMade(self):
 		self.handler.connection = self
 
-	def connectionLost(self, reason):
-       		reactor.stop()
+	def connectionLost(self,reason):
+		reactor.stop()
 
 	def dataReceived(self, data):
-		data = json.loads(data)
-		self.handler.gameData = data
-		if(self.handler.started == 0):
-			self.handler.startGame()
-			self.handler.started = 1
+		if isInt(data[0]):
+			data = int(data[0])
+			if(data == 1):
+				if self.handler.check:
+					self.handler.reset()
+					self.handler.check = 0
+				self.handler.playerID = 1
+				self.handler.startScreen1()
+			if(data == 3):
+				self.handler.check = 1
+				self.handler.startScreen2()
+			if(data == 4):
+				self.handler.check = 1
+				self.handler.startScreen2()
+				self.handler.connection.transport.write("Ready")
+		else:
+			data = json.loads(data)
+			self.handler.gameData = data
+			if(self.handler.started == 0):
+				self.handler.startGame()
+				self.handler.started = 1
 
 #Protocol for command connection
 class Player2ConnectionProtocol(Protocol):
@@ -44,14 +67,30 @@ class Player2ConnectionProtocol(Protocol):
 		self.handler.connection = self
 
 	def connectionLost(self, reason):
-       		reactor.stop()
+		reactor.stop()
 
 	def dataReceived(self, data):
-		data = json.loads(data)
-		self.handler.gameData = data
-		if(self.handler.started == 0):
-			self.handler.startGame()
-			self.handler.started = 1
+		if isInt(data[0]):
+			data = int(data[0])
+			if(data == 1):
+				if self.handler.check:
+					self.handler.reset()
+					self.handler.check = 0
+				self.handler.playerID = 2
+				self.handler.startScreen1()
+			if(data == 3):
+				self.handler.check = 1
+				self.handler.startScreen2()
+			if(data == 4):
+				self.handler.check = 1
+				self.handler.startScreen2()
+				self.handler.connection.transport.write("Ready")
+		else:
+			data = json.loads(data)
+			self.handler.gameData = data
+			if(self.handler.started == 0):
+				self.handler.startGame()
+				self.handler.started = 1
 
 
 #Protocol for command connection
@@ -116,6 +155,13 @@ class GameHandler:
 
 		self.connection = ''
 		self.tempconnection = ''
+		self.started = 0
+		self.playerID = ''
+		self.gameData = {}
+		self.gs = ""
+		self.check = 1
+		
+	def reset(self):
 		self.started = 0
 		self.playerID = ''
 		self.gameData = {}

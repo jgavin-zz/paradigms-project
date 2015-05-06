@@ -15,6 +15,10 @@ import os
 import random
 import time
 
+port1 =  ""
+port2 = ""
+port3 = ""
+
 #Protocol for temp connection
 class TempProtocol(LineReceiver):
 
@@ -30,9 +34,10 @@ class TempProtocol(LineReceiver):
 		return
 
 	def dataReceived(self, data):
+		global port1
 		if data == "Clicked":
 			self.handler.playersStarted += 1
-			self.sendLine("3")
+			self.transport.write("3")
 		if self.handler.playersStarted == 2:
 			self.handler.started = 1
 
@@ -49,8 +54,17 @@ class Player1Protocol(LineReceiver):
 			self.handler.started = 0
 
 	def dataReceived(self, data):
-		data = json.loads(data)
-		self.handler.processPlayer1Events(data)	
+		if data == "Clicked":
+			self.handler.playersStarted += 1
+			if self.handler.playersStarted == 1:
+				self.sendLine("3")
+			elif self.handler.playersStarted == 2:
+				self.sendLine("4")
+		elif data == "Ready":
+			self.handler.tellPlayersToStart()	
+		else:
+			data = json.loads(data)
+			self.handler.processPlayer1Events(data)	
 		return
 
 #Protocol for player2 connection
@@ -67,8 +81,17 @@ class Player2Protocol(LineReceiver):
 		return
 
 	def dataReceived(self, data):
-		data = json.loads(data)
-		self.handler.processPlayer2Events(data)		
+		if data == "Clicked":
+			self.handler.playersStarted += 1
+			if self.handler.playersStarted == 1:
+				self.sendLine("3")
+			elif self.handler.playersStarted == 2:
+				self.sendLine("4")
+		elif data == "Ready":
+			self.handler.tellPlayersToStart()
+		else:
+			data = json.loads(data)
+			self.handler.processPlayer2Events(data)		
 		return
 		
 
@@ -242,12 +265,81 @@ class GameHandler:
 
 		self.number = 500
 
+		self.restartCheck = 0
+
 	def tellPlayersToStart(self):
 		self.startTime = time.time()
 		self.sendGameData(1)
 		self.sendGameData(2)
 
+	def reset(self):
+		self.connectionMade = 0
+		self.playersStarted = 0
+
+		self.player1x = 100
+		self.player1y = 100
+		self.player2x = 200
+		self.player2y = 200
+		
+		self.player1health = 10
+		self.player2health = 10
+
+		self.player1alive = 1
+		self.player2alive = 1
+
+		self.player1GunAngle = 270
+		self.player2GunAngle = 270
+
+		self.player1Angle = 90
+		self.player2Angle = 90
+
+		self.player1Kills = 0
+		self.player2Kills = 0
+
+		self.delay = 5
+
+		self.player1DeadTime = 0
+		self.player2DeadTime = 0
+
+		self.r1Angle = 0
+		self.r2Angle = 0
+
+		self.gunLength = 80
+
+		self.timer = 60
+					
+		self.enemies = []
+		self.bullets = []
+
+		self.gamecounter = 0
+		
+		self.check = 0
+		self.IDcount = 0
+		self.eCount = 0
+
+		self.started = 0
+
+		self.number = 500
+
+		self.restartCheck = 0
+
 	def processPlayer1Events(self, events):
+		global port2
+		if events['restart'] == "1":
+			self.player1Connection.sendLine("1")
+			if not self.restartCheck:
+				self.reset()
+				self.restartCheck = 1
+				return
+			else:
+				self.restartCheck = 0
+
+		if events['exit'] == "1":
+			self.player1Connection.transport.loseConnection()
+			self.player2Connection.transport.loseConnection()
+			reactor.stop()
+			return
+		
 		self.gamecounter = self.gamecounter + 1
 		if(self.gamecounter%int(self.number) == 0 or self.gamecounter == 10):
 			self.enemies.append(EnemyData(self.eCount))
@@ -271,12 +363,6 @@ class GameHandler:
 		if not self.player1alive and time.time() - self.player1DeadTime > self.delay:
 			self.player1alive = 1
 			self.player1health = 10
-
-		if events['exit'] == "1":
-			self.player1Connection.transport.loseConnection()
-			self.player2Connection.transport.loseConnection()
-			reactor.stop()
-			return
 
 		mx = events['mx']
 		my = events['my']
@@ -361,6 +447,16 @@ class GameHandler:
 		return
 
 	def processPlayer2Events(self, events):
+		global port1, port3
+		if events['restart'] == "1":
+			self.player2Connection.transport.write("1")
+			if not self.restartCheck:
+				self.reset()
+				self.restartCheck = 1
+				return
+			else:
+				self.restartCheck = 0
+
 		if events['exit'] == "1":
 			self.player1Connection.transport.loseConnection()
 			self.player2Connection.transport.loseConnection()
@@ -548,9 +644,15 @@ class GameHandler:
 		if(playerID == 2):
 			data['partnerGunAngle'] = self.player1GunAngle
 			data['kills'] = self.player2Kills
+		if (self.player1Kills > self.player2Kills):
+			data['winner'] = 1
+		else:
+			data['winner'] = 2
 
 		data['player1Angle'] = self.player1Angle
 		data['player2Angle'] = self.player2Angle
+	
+		data['restart'] = 0
 
 		data['enemies'] = []
 		for e in self.enemies:
@@ -575,9 +677,9 @@ player1Factory = Player1Factory(gameHandler)
 player2Factory = Player2Factory(gameHandler)
 
 #Listen For Connections from Work and direct to Command and Client Factories
-reactor.listenTCP(32000, tempFactory)
-reactor.listenTCP(32001, player1Factory)
-reactor.listenTCP(32002, player2Factory)
+port1 = reactor.listenTCP(32000, tempFactory)
+port2 = reactor.listenTCP(32001, player1Factory)
+port3 = reactor.listenTCP(32002, player2Factory)
 
 #Start event loop
 reactor.run()

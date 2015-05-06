@@ -25,7 +25,8 @@ class EventPackage:
 		self.handler['mouseEvent'] = ""
 		self.handler['mx'] = ""
 		self.handler['my'] = ""
-		self.handler['exit'] = 0
+		self.handler['exit'] = "0"
+		self.handler['restart'] = "0"
 		self.connection = connection
 
 	def addKeyEvent(self, keycode):
@@ -47,6 +48,9 @@ class EventPackage:
 
 	def setExit(self):
 		self.handler['exit'] = "1"
+
+	def restart(self):
+		self.handler['restart'] = "1"
 
 	def send(self):
 		data = json.dumps(self.handler)
@@ -188,12 +192,9 @@ class GameSpace:
 		self.playerKills = 0
 		self.timer = 60
 
-	
 	def updateGameData(self, data):
 		bulletID = []
 		enemyID = []
-		if data['time'] == 0:
-			self.gameOver()
 		#Update Player Positions
 		self.Player1.rect.centerx = data['player1x']
 		self.Player1.rect.centery = data['player1y']
@@ -292,7 +293,7 @@ class GameSpace:
 		self.black = 0, 0, 0
 		self.screen = pygame.display.set_mode(self.size)
 		pygame.display.set_caption("Player " + str(self.playerID))
-
+		self.screen.fill(self.black)
 		#Initialize game objects
 		self.background = Background("startscreen1.jpg")
 		self.Player1 = Player1(self)
@@ -300,7 +301,6 @@ class GameSpace:
 		self.Player2 = Player2(self)
 		self.Gun2 = Gun2(self)
 		check2 = True
-		self.screen.fill(self.black)		
 		if Type == 2:	
 			self.background = Background("startscreen2.jpg")
 		self.screen.blit(self.background.image, self.background.rect)	
@@ -339,6 +339,12 @@ class GameSpace:
 						if (mx > 175 and mx < 475 and my > 210 and my < 310):
 							self.connection.transport.write("Clicked")
 							return
+					if event.type == pygame.QUIT:
+						self.event_package.setExit()
+						pygame.quit()
+						self.event_package.send()
+						return
+
 
 	#Main function which drives gameplay
 	def main(self,handler):
@@ -353,11 +359,11 @@ class GameSpace:
 		self.font = pygame.font.SysFont("monospace",15)
 		self.player1tag = self.font.render("Player 1", 1, (255,255,0))
 		self.p1rect = self.player1tag.get_rect()
-		self.p1rect.centerx = 120
+		self.p1rect.centerx = 125
 		self.p1rect.centery = 25
 		self.player2tag = self.font.render("Player 2", 1, (255,255,0))
 		self.p2rect = self.player2tag.get_rect()
-		self.p2rect.centerx = 520
+		self.p2rect.centerx = 525
 		self.p2rect.centery = 25
 		self.kill = self.font.render("Kills:", 1, (255,255,0))
 		self.killRect = self.kill.get_rect()
@@ -369,22 +375,45 @@ class GameSpace:
 		self.timeRect.centery = 30
 		pygame.key.set_repeat(1, 500)
 		#Initiate game loop
-		lc = task.LoopingCall(self.gameLoop)
-		lc.start(.01)
-		if self.handler.gameData['exit']:
-			lc.stop()
-			reactor.stop()
-			pygame.quit()
+		self.lc = task.LoopingCall(self.gameLoop)
+		self.lc.start(.01)
 
-	def gameOver(self):
-		self.screen.fill(self.black)
-		pygame.display.flip()	
-		time.sleep(5)
+	def gameOver(self,winner):
+		if (winner == 1):
+			self.background = Background("endscreen1.png")
+		else:
+			self.background = Background("endscreen2.png")
+		self.screen.blit(self.background.image, self.background.rect)	
+		pygame.display.flip()
+		while 1:
+			for event in pygame.event.get():
+					if event.type == MOUSEBUTTONDOWN:
+						mx,my = pygame.mouse.get_pos()
+						if (mx > 170 and mx < 495 and my > 315 and my < 410):
+							self.event_package.setExit()
+							pygame.quit()
+							self.event_package.send()
+							return
+						if (mx > 170 and mx < 495 and my > 195 and my < 290):
+							self.handler.gameData['restart'] = 1
+							self.event_package.restart()
+							self.event_package.send()
+							self.lc.stop()
+							return
+					if event.type == pygame.QUIT:
+						self.event_package.setExit()
+						pygame.quit()
+						self.event_package.send()
+						self.lc.stop()
+						return
 
 	def gameLoop(self):
 
 		#Get game info from server and update object information
 		newData = self.handler.gameData
+		if newData['time'] == 0:
+			self.gameOver(newData['winner'])
+			return
 		self.updateGameData(newData)
 		check = 0
 		#Add user input events to event package and send package to server
@@ -393,7 +422,6 @@ class GameSpace:
 			if event.type == MOUSEBUTTONDOWN:
 				self.event_package.setMousePressed()
 			if event.type == pygame.QUIT:
-				self.event_package.setExit()
 				self.event_package.setExit()
 				pygame.quit()
 				self.event_package.send()
