@@ -217,6 +217,9 @@ class GameSpace:
 		self.Gun2.rect.centerx = data['player2x']
 		self.Gun2.rect.centery = data['player2y']
 
+		self.player1kills = data['player1kills']
+		self.player2kills = data['player2kills']
+
 		self.playerKills = data['kills']
 		self.timer = data['time']
 
@@ -344,8 +347,6 @@ class GameSpace:
 			self.Player1.image = pygame.transform.rotate(self.Player1.orig_image, 90)
 			center = self.Player1.rect.center
 			self.Player1.rect = self.Player1.image.get_rect(center=center)
-			self.screen.blit(self.Player1.image, self.Player1.rect)
-			self.screen.blit(self.Gun1.image, self.Gun1.rect)
 		else:
 			self.Player2.rect.centerx = 200
 			self.Player2.rect.centery = 200
@@ -357,8 +358,6 @@ class GameSpace:
 			self.Player2.image = pygame.transform.rotate(self.Player2.orig_image, 90)
 			center = self.Player2.rect.center
 			self.Player2.rect = self.Player2.image.get_rect(center=center)
-			self.screen.blit(self.Player2.image, self.Player2.rect)
-			self.screen.blit(self.Gun2.image, self.Gun2.rect)
 		pygame.display.flip()	
 		if Type == 1:
 			while 1:
@@ -371,7 +370,7 @@ class GameSpace:
 					if event.type == pygame.QUIT:
 						self.event_package.setExit()
 						pygame.quit()
-						self.event_package.send()
+						self.connection.transport.write("Kill")
 						return
 
 
@@ -403,12 +402,12 @@ class GameSpace:
 		self.p2rect.centery = 25
 		self.kill = self.font.render("Kills:", 1, (255,255,0))
 		self.killRect = self.kill.get_rect()
-		self.killRect.centerx = 315
-		self.killRect.centery = 20
+		self.killRect.centerx = 320
+		self.killRect.centery = 50
 		self.time = self.font.render("Time:", 1, (255,255,0))
 		self.timeRect = self.time.get_rect()
-		self.timeRect.centerx = 319
-		self.timeRect.centery = 20
+		self.timeRect.centerx = 320
+		self.timeRect.centery = 30
 		pygame.key.set_repeat(1, 500)
 		#Initiate game loop
 		self.lc = task.LoopingCall(self.gameLoop)
@@ -417,9 +416,31 @@ class GameSpace:
 	def gameOver(self,winner):
 		if (winner == 1):
 			self.background = Background("endscreen1.png")
-		else:
+		else if (winner == 2):
 			self.background = Background("endscreen2.png")
-		self.screen.blit(self.background.image, self.background.rect)	
+		else:
+			self.background = Background("endscreen3.png")
+		self.screen.blit(self.background.image, self.background.rect)
+		self.kill1 = self.font.render("Player1 Kills:", 1, (0,0,0))
+		self.killRect1 = self.kill1.get_rect()
+		self.killRect1.centerx = 80
+		self.killRect1.centery = 50
+		self.screen.blit(self.kill1,self.killRect1)	
+		self.kill2 = self.font.render("Player2 Kills:", 1, (0,0,0))
+		self.killRect2 = self.kill2.get_rect()
+		self.killRect2.centerx = 560
+		self.killRect2.centery = 50
+		self.screen.blit(self.kill2,self.killRect2)	
+		self.killCount1 = self.font.render(str(self.player1kills),1,(0,0,0))
+		self.countRect1 = self.killCount1.get_rect()
+		self.countRect1.centerx = 150
+		self.countRect1.centery = 50
+		self.screen.blit(self.killCount1,self.countRect1)
+		self.killCount2 = self.font.render(str(self.player2kills),1,(0,0,0))
+		self.countRect2 = self.killCount2.get_rect()
+		self.countRect2.centerx = 630
+		self.countRect2.centery = 50
+		self.screen.blit(self.killCount2,self.countRect2)
 		pygame.display.flip()
 		while 1:
 			for event in pygame.event.get():
@@ -517,7 +538,9 @@ class GameSpace:
 		#Play Sounds
 		if(self.playGunSound):
 			self.gunSound.play()
-		if(self.playTankSound):
-			self.tankSound.play()
+		if(self.playHitSound):
+			self.hitSound.play()
+		if(self.playSquashSound):
+			self.squashSound.play()
 
 		pygame.display.flip()

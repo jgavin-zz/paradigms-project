@@ -26,6 +26,7 @@ class TempProtocol(LineReceiver):
 		self.handler = handler
 
     	def connectionMade(self):
+		self.handler.temp = self
 		if(self.handler.connectionMade == 0):
 			self.handler.connectionMade = 1
 			self.sendLine("1")
@@ -34,10 +35,13 @@ class TempProtocol(LineReceiver):
 		return
 
 	def dataReceived(self, data):
-		global port1
 		if data == "Clicked":
 			self.handler.playersStarted += 1
 			self.transport.write("3")
+		if data == "Kill":
+			self.transport.loseConnection()
+			if reactor.running:
+				reactor.stop()
 		if self.handler.playersStarted == 2:
 			self.handler.started = 1
 
@@ -61,7 +65,11 @@ class Player1Protocol(LineReceiver):
 			elif self.handler.playersStarted == 2:
 				self.sendLine("4")
 		elif data == "Ready":
-			self.handler.tellPlayersToStart()	
+			self.handler.tellPlayersToStart()
+		elif data == "Kill":
+			self.transport.loseConnection()
+			if reactor.running:
+				reactor.stop()	
 		else:
 			data = json.loads(data)
 			self.handler.processPlayer1Events(data)	
@@ -89,6 +97,9 @@ class Player2Protocol(LineReceiver):
 				self.sendLine("4")
 		elif data == "Ready":
 			self.handler.tellPlayersToStart()
+		elif data == "Kill":
+			self.transport.loseConnection()
+			self.Player1Connection.transport.loseConnection()
 		else:
 			data = json.loads(data)
 			self.handler.processPlayer2Events(data)		
@@ -250,7 +261,7 @@ class GameHandler:
 
 		self.gunLength = 80
 
-		self.timer = 60	
+		self.timer = 2	
 					
 		self.enemies = []
 		self.bullets = []
@@ -268,6 +279,8 @@ class GameHandler:
 		self.number = 500
 
 		self.restartCheck = 0
+
+		self.temp = ""
 
 		self.gunSound = 0
 		self.squashSound = 0
@@ -345,7 +358,9 @@ class GameHandler:
 		if events['exit'] == "1":
 			self.player1Connection.transport.loseConnection()
 			self.player2Connection.transport.loseConnection()
-			reactor.stop()
+			self.temp.transport.loseConnection()
+			if reactor.running:
+				reactor.stop()
 			return
 		
 		self.gamecounter = self.gamecounter + 1
@@ -369,6 +384,23 @@ class GameHandler:
 			self.eCount+=1
 
 		if not self.player1alive and time.time() - self.player1DeadTime > self.delay:
+			random.seed()
+			while 1:
+				newXpos = random.randrange(100,550,1)
+				newYpos = random.randrange(100,400,1)
+				if newXpos >= self.player2x - 60 and newXpos <= self.player2x + 60:
+					if newYpos >= self.player2y - 50 and newYpos <= self.player2y + 50:
+						continue
+				check = 0
+				for e in self.enemies:
+					if newXpos >= e.xcenter - 50 and newXpos <= e.xcenter + 50:
+							if newYpos >= e.ycenter - 40 and newYpos <= e.ycenter + 40:
+								check = 1
+				if check:
+					continue
+				break
+			self.player1x = newXpos
+			self.player1y = newYpos	
 			self.player1alive = 1
 			self.player1health = 10
 
@@ -487,10 +519,29 @@ class GameHandler:
 		if events['exit'] == "1":
 			self.player1Connection.transport.loseConnection()
 			self.player2Connection.transport.loseConnection()
-			reactor.stop()
+			self.temp.transport.loseConnection()
+			if reactor.running:
+				reactor.stop()
 			return
 
 		if not self.player2alive and time.time() - self.player2DeadTime > self.delay:
+			random.seed()
+			while 1:
+				newXpos = random.randrange(100,550,1)
+				newYpos = random.randrange(100,400,1)
+				if newXpos >= self.player1x - 60 and newXpos <= self.player1x + 60:
+					if newYpos >= self.player1y - 50 and newYpos <= self.player1y + 50:
+						continue
+				check = 0
+				for e in self.enemies:
+					if newXpos >= e.xcenter - 50 and newXpos <= e.xcenter + 50:
+							if newYpos >= e.ycenter - 40 and newYpos <= e.ycenter + 40:
+								check = 1
+				if check:
+					continue
+				break
+			self.player2x = newXpos
+			self.player2y = newYpos	
 			self.player2alive = 1
 			self.player2health = 10
 
@@ -708,6 +759,8 @@ class GameHandler:
 		data['player2y'] = self.player2y
 		data['player1alive'] = self.player1alive
 		data['player2alive'] = self.player2alive
+		data['player1kills'] = self.player1Kills
+		data['player2kills'] = self.player2Kills
 		data['exit'] = 0
 		data['time'] = int(round(self.timer - (time.time() - self.startTime)))
 
@@ -719,8 +772,10 @@ class GameHandler:
 			data['kills'] = self.player2Kills
 		if (self.player1Kills > self.player2Kills):
 			data['winner'] = 1
-		else:
+		elif (self.player1Kills < self.player2Kills):
 			data['winner'] = 2
+		else:
+			data['winner'] = 0
 
 		data['player1Angle'] = self.player1Angle
 		data['player2Angle'] = self.player2Angle

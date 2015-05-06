@@ -32,7 +32,9 @@ class Player1ConnectionProtocol(Protocol):
 		self.handler.connection = self
 
 	def connectionLost(self,reason):
-		reactor.stop()
+			if self.handler.end:
+				reactor.stop()
+				self.handler.end = 0
 
 	def dataReceived(self, data):
 		if isInt(data[0]):
@@ -67,7 +69,9 @@ class Player2ConnectionProtocol(Protocol):
 		self.handler.connection = self
 
 	def connectionLost(self, reason):
-		reactor.stop()
+		if self.handler.end:
+			reactor.stop()
+			self.handler.end = 0
 
 	def dataReceived(self, data):
 		if isInt(data[0]):
@@ -101,6 +105,11 @@ class InitialConnectionProtocol(Protocol):
 
 	def connectionMade(self):
 		self.handler.connection  = self
+
+	def connectionLost(self, reason):
+		if self.handler.end:
+			reactor.stop()
+			self.handler.end = 0
 
 	def dataReceived(self, data):
 		data = int(data[0])
@@ -160,6 +169,7 @@ class GameHandler:
 		self.gameData = {}
 		self.gs = ""
 		self.check = 1
+		self.end = 1
 		
 	def reset(self):
 		self.started = 0
