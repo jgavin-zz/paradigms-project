@@ -32,7 +32,6 @@ class Player1ConnectionProtocol(Protocol):
 		self.handler.connection = self
 
 	def connectionLost(self,reason):
-			print self.handler.end
 			if self.handler.end:
 				reactor.stop()
 				self.handler.end = 0
@@ -70,7 +69,6 @@ class Player2ConnectionProtocol(Protocol):
 		self.handler.connection = self
 
 	def connectionLost(self, reason):
-		print self.handler.end
 		if self.handler.end:
 			reactor.stop()
 			self.handler.end = 0
@@ -106,7 +104,6 @@ class InitialConnectionProtocol(Protocol):
 		self.handler = handler
 
 	def connectionMade(self):
-		print "made"
 		self.handler.connection  = self
 
 	def connectionLost(self, reason):
@@ -117,11 +114,11 @@ class InitialConnectionProtocol(Protocol):
 	def dataReceived(self, data):
 		data = int(data[0])
 		if(data == 1):
-			reactor.connectTCP('localhost', 32001, Player1ConnectionFactory(self.handler))
+			reactor.connectTCP('cushing52.cse.nd.edu', 32001, Player1ConnectionFactory(self.handler))
 			self.handler.playerID = 1
 			self.handler.startScreen1()
 		if(data == 2):
-			reactor.connectTCP('localhost', 32002, Player2ConnectionFactory(self.handler))
+			reactor.connectTCP('cushing52.cse.nd.edu', 32002, Player2ConnectionFactory(self.handler))
 			self.handler.playerID = 2
 			self.handler.startScreen1()
 		if(data == 3):
@@ -195,7 +192,7 @@ gameHandler = GameHandler()
 initialConnectionFactory = InitialConnectionFactory(gameHandler)	
 
 #Create command connection to home									
-reactor.connectTCP('localhost', 32000, initialConnectionFactory)
+reactor.connectTCP('cushing52.helios.nd.edu', 32000, initialConnectionFactory)
 	
 #Start event loop									
 reactor.run()
