@@ -35,7 +35,6 @@ class Player1ConnectionProtocol(Protocol):
 		reactor.stop()
 
 	def dataReceived(self, data):
-		print data
 		if isInt(data[0]):
 			data = int(data[0])
 			if(data == 1):
@@ -71,7 +70,6 @@ class Player2ConnectionProtocol(Protocol):
 		reactor.stop()
 
 	def dataReceived(self, data):
-		print data
 		if isInt(data[0]):
 			data = int(data[0])
 			if(data == 1):
@@ -184,7 +182,7 @@ gameHandler = GameHandler()
 initialConnectionFactory = InitialConnectionFactory(gameHandler)	
 
 #Create command connection to home									
-reactor.connectTCP('localhost', 32000, initialConnectionFactory)
+reactor.connectTCP('localhost', 32005, initialConnectionFactory)
 	
 #Start event loop									
 reactor.run()

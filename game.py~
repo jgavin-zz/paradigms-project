@@ -140,9 +140,9 @@ class Gun2(pygame.sprite.Sprite):
 			self.rect = self.image.get_rect(center=center)
 
 class Bullet(pygame.sprite.Sprite):
-	def __init__(self, x, y, angle, ID):
+	def __init__(self, x, y, angle, ID, img):
 		pygame.sprite.Sprite.__init__(self)
-		self.image = pygame.image.load("blueBullet.jpg")
+		self.image = pygame.image.load(img)
 		self.image = pygame.transform.scale(self.image, (10, 10))
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
@@ -180,6 +180,16 @@ class Healthbar(pygame.sprite.Sprite):
 		self.orig_y = y
 		self.rect.x = x
 		self.rect.y = y
+
+class Explosion(pygame.sprite.Sprite):
+	def __init__(self, x, y, life):
+		pygame.sprite.Sprite.__init__(self)
+		self.image = pygame.image.load("explosion.png")
+		self.image = pygame.transform.scale(self.image, (20, 20))
+		self.rect = self.image.get_rect()
+		self.rect.x = x
+		self.rect.y = y
+		self.life = life
 
 class GameSpace:
 
@@ -241,7 +251,12 @@ class GameSpace:
 					l.rect.centery = b['y']
 					check = 0
 			if check:
-				self.bullets.append(Bullet(b['x'], b['y'], b['angle'], b['bulletID']))			 
+				if(b['type'] == 1):
+					self.bullets.append(Bullet(b['x'], b['y'], b['angle'], b['bulletID'], "blueBullet.jpg"))
+				if(b['type'] == 2):
+					self.bullets.append(Bullet(b['x'], b['y'], b['angle'], b['bulletID'], "greenBullet.png"))	
+				if(b['type'] == 3):
+					self.bullets.append(Bullet(b['x'], b['y'], b['angle'], b['bulletID'], "redBullet.png"))		 
 
 		for b in self.bullets:
 			if b.ID not in bulletID:
@@ -282,11 +297,25 @@ class GameSpace:
 		self.player2HealthBar.rect = self.player2HealthBar.image.get_rect()
 		self.player2HealthBar.rect.x = self.player2HealthBar.orig_x
 		self.player2HealthBar.rect.y = self.player2HealthBar.orig_y
+
+		#Update explosions
+		for e in self.explosions:
+			e.life = e.life - 1
+			if(e.life == 0):
+				self.explosions.remove(e)
+		for e in data['explosions']:
+			self.explosions.append(Explosion(e['x'], e['y'], 10))
+
+		#Update Sounds
+		self.playGunSound = data['gunSound']
+		self.playHitSound = data['hitSound']
+		self.playSquashSound = data['squashSound']
 		
 	def startScreen(self,handler,Type):
 		self.connection = handler.connection
 		self.playerID = handler.playerID
 		self.handler = handler
+		self.event_package = EventPackage(self.connection)
 		#Initialize basic game information
 		pygame.init()
 		self.size = self.width, self.height = 650, 500
@@ -348,14 +377,21 @@ class GameSpace:
 
 	#Main function which drives gameplay
 	def main(self,handler):
-		self.background = Background("grass-texture.jpg")
+		self.background = Background("desert-texture.jpg")
 		self.connection = handler.connection
 		self.playerID = handler.playerID
 		self.handler = handler
 		self.bullets = []
 		self.enemies = []
+		self.explosions = []
 		self.player1HealthBar = Healthbar(25, 35)
 		self.player2HealthBar = Healthbar(425, 35)
+		self.gunSound = pygame.mixer.Sound('gunSound.ogg')
+		self.playGunSound = 0
+		self.hitSound = pygame.mixer.Sound('hitSound.ogg')
+		self.playHitSound = 0
+		self.squashSound = pygame.mixer.Sound('squashSound.ogg')
+		self.playSquashSound = 0
 		self.font = pygame.font.SysFont("monospace",15)
 		self.player1tag = self.font.render("Player 1", 1, (255,255,0))
 		self.p1rect = self.player1tag.get_rect()
@@ -368,11 +404,11 @@ class GameSpace:
 		self.kill = self.font.render("Kills:", 1, (255,255,0))
 		self.killRect = self.kill.get_rect()
 		self.killRect.centerx = 315
-		self.killRect.centery = 50
+		self.killRect.centery = 20
 		self.time = self.font.render("Time:", 1, (255,255,0))
 		self.timeRect = self.time.get_rect()
 		self.timeRect.centerx = 319
-		self.timeRect.centery = 30
+		self.timeRect.centery = 20
 		pygame.key.set_repeat(1, 500)
 		#Initiate game loop
 		self.lc = task.LoopingCall(self.gameLoop)
@@ -389,12 +425,7 @@ class GameSpace:
 			for event in pygame.event.get():
 					if event.type == MOUSEBUTTONDOWN:
 						mx,my = pygame.mouse.get_pos()
-						if (mx > 170 and mx < 495 and my > 315 and my < 410):
-							self.event_package.setExit()
-							pygame.quit()
-							self.event_package.send()
-							return
-						if (mx > 170 and mx < 495 and my > 195 and my < 290):
+						if (mx > 160 and mx < 485 and my > 260 and my < 350):
 							self.handler.gameData['restart'] = 1
 							self.event_package.restart()
 							self.event_package.send()
@@ -478,6 +509,15 @@ class GameSpace:
 			self.screen.blit(b.image, b.rect)
 		for e in self.enemies:
 			self.screen.blit(e.image, e.rect)
+		for e in self.explosions:
+			self.screen.blit(e.image, e.rect)
 		self.screen.blit(self.player1HealthBar.image, self.player1HealthBar.rect)
 		self.screen.blit(self.player2HealthBar.image, self.player2HealthBar.rect)
+
+		#Play Sounds
+		if(self.playGunSound):
+			self.gunSound.play()
+		if(self.playTankSound):
+			self.tankSound.play()
+
 		pygame.display.flip()
