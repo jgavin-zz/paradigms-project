@@ -203,8 +203,8 @@ class BulletData:
 
 	def setInitialVelocity(self, angle):
 
-		self.vx = (cos(angle) * 10)/3
-		self.vy = (sin(angle) * 10)/3
+		self.vx = (cos(angle) * 10)/4
+		self.vy = (sin(angle) * 10)/4
 
 	def move(self):
 

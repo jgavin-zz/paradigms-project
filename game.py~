@@ -420,7 +420,7 @@ class GameSpace:
 		pygame.key.set_repeat(1, 500)
 		#Initiate game loop
 		self.lc = task.LoopingCall(self.gameLoop)
-		self.lc.start(.01)
+		self.lc.start(.02)
 
 	def gameOver(self,winner):
 		if (winner == 1):
