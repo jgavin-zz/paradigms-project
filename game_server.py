@@ -261,7 +261,7 @@ class GameHandler:
 
 		self.gunLength = 80
 
-		self.timer = 2	
+		self.timer = 60	
 					
 		self.enemies = []
 		self.bullets = []
@@ -338,7 +338,7 @@ class GameHandler:
 
 		self.started = 0
 
-		self.number = 500
+		self.number = 100
 
 		self.restartCheck = 0
 
@@ -498,6 +498,8 @@ class GameHandler:
 				self.enemies.remove(e)
 				self.player1Kills += 1
 				self.squashSound = 1
+				if self.number > 20:
+					self.number *= .95
 			
 
 		self.sendGameData(1)
@@ -641,6 +643,8 @@ class GameHandler:
 				self.enemies.remove(e)
 				self.player2Kills += 1
 				self.squashSound = 1
+				if self.number > 20:
+					self.number *= .95
 				
 			
 		
@@ -815,9 +819,9 @@ player1Factory = Player1Factory(gameHandler)
 player2Factory = Player2Factory(gameHandler)
 
 #Listen For Connections from Work and direct to Command and Client Factories
-port1 = reactor.listenTCP(32000, tempFactory)
-port2 = reactor.listenTCP(32001, player1Factory)
-port3 = reactor.listenTCP(32002, player2Factory)
+port1 = reactor.listenTCP(9300, tempFactory)
+port2 = reactor.listenTCP(9301, player1Factory)
+port3 = reactor.listenTCP(9302, player2Factory)
 
 #Start event loop
 reactor.run()

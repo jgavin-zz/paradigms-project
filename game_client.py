@@ -114,11 +114,11 @@ class InitialConnectionProtocol(Protocol):
 	def dataReceived(self, data):
 		data = int(data[0])
 		if(data == 1):
-			reactor.connectTCP('cushing52.helios.nd.edu', 32001, Player1ConnectionFactory(self.handler))
+			reactor.connectTCP('student00.cse.nd.edu', 9301, Player1ConnectionFactory(self.handler))
 			self.handler.playerID = 1
 			self.handler.startScreen1()
 		if(data == 2):
-			reactor.connectTCP('cushing52.helios.nd.edu', 32002, Player2ConnectionFactory(self.handler))
+			reactor.connectTCP('student00.cse.nd.edu', 9302, Player2ConnectionFactory(self.handler))
 			self.handler.playerID = 2
 			self.handler.startScreen1()
 		if(data == 3):
@@ -192,7 +192,7 @@ gameHandler = GameHandler()
 initialConnectionFactory = InitialConnectionFactory(gameHandler)	
 
 #Create command connection to home									
-reactor.connectTCP('cushing52.helios.nd.edu', 32000, initialConnectionFactory)
+reactor.connectTCP('student00.cse.nd.edu', 9300, initialConnectionFactory)
 	
 #Start event loop									
 reactor.run()

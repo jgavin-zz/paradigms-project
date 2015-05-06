@@ -35,7 +35,6 @@ class TempProtocol(LineReceiver):
 		return
 
 	def dataReceived(self, data):
-		print data
 		if data == "Clicked":
 			self.handler.playersStarted += 1
 			self.transport.write("3")
@@ -262,7 +261,7 @@ class GameHandler:
 
 		self.gunLength = 80
 
-		self.timer = 2	
+		self.timer = 60	
 					
 		self.enemies = []
 		self.bullets = []
@@ -816,9 +815,9 @@ player1Factory = Player1Factory(gameHandler)
 player2Factory = Player2Factory(gameHandler)
 
 #Listen For Connections from Work and direct to Command and Client Factories
-port1 = reactor.listenTCP(32000, tempFactory)
-port2 = reactor.listenTCP(32001, player1Factory)
-port3 = reactor.listenTCP(32002, player2Factory)
+port1 = reactor.listenTCP(9300, tempFactory)
+port2 = reactor.listenTCP(9301, player1Factory)
+port3 = reactor.listenTCP(9302, player2Factory)
 
 #Start event loop
 reactor.run()

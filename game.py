@@ -220,7 +220,12 @@ class GameSpace:
 		self.player1kills = data['player1kills']
 		self.player2kills = data['player2kills']
 
-		self.playerKills = data['kills']
+		if self.playerID == 1:
+			self.playerKills = self.player1kills
+			self.oKills = self.player2kills
+		else:
+			self.playerKills = self.player2kills
+			self.oKills = self.player1kills
 		self.timer = data['time']
 
 		#Update Partner Gun Angle
@@ -400,10 +405,14 @@ class GameSpace:
 		self.p2rect = self.player2tag.get_rect()
 		self.p2rect.centerx = 525
 		self.p2rect.centery = 25
-		self.kill = self.font.render("Kills:", 1, (255,255,0))
-		self.killRect = self.kill.get_rect()
-		self.killRect.centerx = 320
-		self.killRect.centery = 50
+		self.kill1 = self.font.render("Your Kills:", 1, (255,255,0))
+		self.killRect1 = self.kill1.get_rect()
+		self.killRect1.centerx = 320
+		self.killRect1.centery = 50
+		self.kill2 = self.font.render("Opponent Kills:", 1, (255,255,0))
+		self.killRect2 = self.kill2.get_rect()
+		self.killRect2.centerx = 320
+		self.killRect2.centery = 70
 		self.time = self.font.render("Time:", 1, (255,255,0))
 		self.timeRect = self.time.get_rect()
 		self.timeRect.centerx = 320
@@ -506,15 +515,21 @@ class GameSpace:
 		#Blit objects to screen
 		self.screen.fill(self.black)
 		self.screen.blit(self.background.image, self.background.rect)
-		self.screen.blit(self.kill,self.killRect)
+		self.screen.blit(self.kill1,self.killRect1)
+		self.screen.blit(self.kill2,self.killRect2)
 		self.screen.blit(self.time,self.timeRect)
 		self.screen.blit(self.player1tag, self.p1rect)
 		self.screen.blit(self.player2tag, self.p2rect)
 		self.killCount = self.font.render(str(self.playerKills),1,(255,255,0))
 		self.countRect = self.killCount.get_rect()
-		self.countRect.centerx = 350
-		self.countRect.centery = 50
+		self.countRect.centerx = 380
+		self.countRect.centery = 51
 		self.screen.blit(self.killCount,self.countRect)
+		self.OkillCount = self.font.render(str(self.oKills),1,(255,255,0))
+		self.OcountRect = self.OkillCount.get_rect()
+		self.OcountRect.centerx = 395
+		self.OcountRect.centery = 70
+		self.screen.blit(self.OkillCount,self.OcountRect)
 		self.timeCount = self.font.render(str(self.timer),1,(255,255,0))
 		self.tCountRect = self.timeCount.get_rect()
 		self.tCountRect.centerx = 350
