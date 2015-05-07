@@ -97,7 +97,8 @@ class Player2Protocol(LineReceiver):
 			self.handler.tellPlayersToStart()
 		elif data == "Kill":
 			self.transport.loseConnection()
-			self.Player1Connection.transport.loseConnection()
+			if reactor.running:
+				reactor.stop()
 		else:
 			data = json.loads(data)
 			self.handler.processPlayer2Events(data)		
@@ -818,10 +819,6 @@ class GameHandler:
 			data['winner'] = 2 #Player2 is winning
 		else:
 			data['winner'] = 0 #Else game is tied
-
-		#Set some other data
-		data['player1Angle'] = self.player1Angle
-		data['player2Angle'] = self.player2Angle
 	
 		data['restart'] = 0
 

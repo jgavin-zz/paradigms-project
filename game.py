@@ -1,3 +1,7 @@
+#Jacob Gavin & James Harkins
+#Game.py 
+#This file handles all of the gameplay action on the client side of our game
+
 import sys
 import os
 
@@ -18,7 +22,10 @@ import cPickle as pickle
 import json
 import time
 
+#Event packages contain all of the information that is sent by a client to the server on each game loop
 class EventPackage:
+
+	#Initialize all values to zero or empty strings
 	def __init__(self, connection):
 		self.handler = {}
 		self.handler['keyPressed'] = ""
@@ -29,6 +36,7 @@ class EventPackage:
 		self.handler['restart'] = "0"
 		self.connection = connection
 
+	#Add a key event to tell the server that the player wants to move
 	def addKeyEvent(self, keycode):
 		if keycode == K_d:
 			self.handler['keyPressed'] = "Right"
@@ -39,23 +47,29 @@ class EventPackage:
 		if keycode == K_s:
 			self.handler['keyPressed'] = "Down"		
 
+	#Add a mouse event to tell the server that the player wants to fire a bullet
 	def setMousePressed(self):
 		self.handler['mouseEvent'] = "Pressed"
 
+	#Send the mouse coordinates to the server
 	def setMouseCoordinates(self, mx, my):
 		self.handler['mx'] = mx
 		self.handler['my'] = my
 
+	#Set a variable which tells the server that the player is exiting the game
 	def setExit(self):
 		self.handler['exit'] = "1"
 
+	#Set a variable which tells the server that the player is going back to the start screen
 	def restart(self):
 		self.handler['restart'] = "1"
 
+	#Send the data to the server in a json dictionary
 	def send(self):
 		data = json.dumps(self.handler)
 		self.connection.transport.write(data)
 
+#Background class to hold the game's background image
 class Background(pygame.sprite.Sprite):
 	def __init__(self, image_name):
 		pygame.sprite.Sprite.__init__(self)
@@ -64,7 +78,10 @@ class Background(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect()
 
 
+#Class for player 1
 class Player1(pygame.sprite.Sprite):
+
+	#Initializer sets the image
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
@@ -72,11 +89,7 @@ class Player1(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect()
 		self.orig_image = self.image
 
-	def tick(self):
-		center = self.rect.center
-		self.image = pygame.transform.rotate(self.orig_image, 270)
-		self.rect = self.image.get_rect(center=center)	
-
+#Class for player 2
 class Player2(pygame.sprite.Sprite):
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
@@ -85,12 +98,10 @@ class Player2(pygame.sprite.Sprite):
 		self.rect = self.image.get_rect()
 		self.orig_image = self.image
 
-	def tick(self):
-		center = self.rect.center
-		self.image = pygame.transform.rotate(self.orig_image, 270)
-		self.rect = self.image.get_rect(center=center)
-
+#Class for player 1's gun
 class Gun1(pygame.sprite.Sprite):
+
+	#Initialize the Gun's image
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
@@ -99,6 +110,7 @@ class Gun1(pygame.sprite.Sprite):
 		# keep original image to limit resize errors
 		self.orig_image = self.image
 
+	#On tick, if you are player 1, perform the gun rotation to face the mouse. We do the gun rotation locally for your own player to make sure it is smooth
 	def tick(self):
 		if (self.gs.playerID == 1):
 			# get the mouse x and y position on the screen
@@ -114,8 +126,10 @@ class Gun1(pygame.sprite.Sprite):
 			self.image = pygame.transform.rotate(self.orig_image, dAngle)
 			self.rect = self.image.get_rect(center=center)	
 
-	
+#Class for player 2's gun 
 class Gun2(pygame.sprite.Sprite):
+
+	#Initialize the Gun's image
 	def __init__(self, gs=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.gs = gs
@@ -124,6 +138,7 @@ class Gun2(pygame.sprite.Sprite):
 		# keep original image to limit resize errors
 		self.orig_image = self.image
 
+	#On tick, if you are player 2, perform the gun rotation to face the mouse. We do the gun rotation locally for your own player to make sure it is smooth
 	def tick(self):
 		if (self.gs.playerID == 2):
 			# get the mouse x and y position on the screen
@@ -139,72 +154,125 @@ class Gun2(pygame.sprite.Sprite):
 			self.image = pygame.transform.rotate(self.orig_image, dAngle)
 			self.rect = self.image.get_rect(center=center)
 
+#Class for a bullet object
 class Bullet(pygame.sprite.Sprite):
+
+	#Initialize image of bullet
 	def __init__(self, x, y, angle, ID, img):
 		pygame.sprite.Sprite.__init__(self)
+
+		#Color of bullet depends on image name passed in
 		self.image = pygame.image.load(img)
+
+		#Scale image down to smaller size (Found out how to do this from pygame docs)
 		self.image = pygame.transform.scale(self.image, (10, 10))
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
+
+		#Rotate to angle
 		center = self.rect.center
 		self.image = pygame.transform.rotate(self.orig_image, angle)
 		self.rect = self.image.get_rect(center=center)
+
+		#Set x and y coordinates
 		self.rect.centerx = x
 		self.rect.centery = y
 		self.ID = ID
-		# keep original image to limit resize errors
 
+#Class for enemy object
 class Enemy(pygame.sprite.Sprite):
+
+	#Initilize image of enemy
 	def __init__(self, x, y, angle,ID):
 		pygame.sprite.Sprite.__init__(self)
+
+		#Load soldier image
 		self.image = pygame.image.load("soldier.jpg")
 		self.image = pygame.transform.scale(self.image, (20, 40))
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
+
+		#Rotate image to correct angle
 		center = self.rect.center
 		self.image = pygame.transform.rotate(self.orig_image, angle)
 		self.rect = self.image.get_rect(center=center)
+
+		#Set x and y coordinates
 		self.rect.centerx = x
 		self.rect.centery = y	
 		self.ID = ID
 
+#Class for healthbars
 class Healthbar(pygame.sprite.Sprite):
+
+	#Initialize image
 	def __init__(self, x, y):
 		pygame.sprite.Sprite.__init__(self)
+
+		#Load image and scale to correct size
 		self.image = pygame.image.load("healthBar.jpg")
 		self.image = pygame.transform.scale(self.image, (200, 10))
+
+		#Set an original width to compare to later so it can be scaled down
 		self.orig_width = 200
 		self.orig_image = self.image
 		self.rect = self.image.get_rect()
+
+		#Set x and y coordinates
 		self.orig_x = x
 		self.orig_y = y
 		self.rect.x = x
 		self.rect.y = y
 
+
+#Class for explosion images
 class Explosion(pygame.sprite.Sprite):
+
+	#Initialize the image
 	def __init__(self, x, y, life):
 		pygame.sprite.Sprite.__init__(self)
+
+		#Load image and scale to size
 		self.image = pygame.image.load("explosion.png")
 		self.image = pygame.transform.scale(self.image, (20, 20))
 		self.rect = self.image.get_rect()
+
+		#Set x and y coordinates
 		self.rect.x = x
 		self.rect.y = y
+
+		#Set life variable to control how long it is on the screen
 		self.life = life
 
+
+#Main games space class
 class GameSpace:
 
 	#Initiale game space with connection and playerID number
         def __init__(self, handler):
 
+		#Store connection to server
 		self.connection = handler.connection
+
+		#Store player ID so we know if we are player 1 or 2
 		self.playerID = handler.playerID
+
+		#Store handler
 		self.handler = handler
+
+		#Keep track of number of kills
 		self.playerKills = 0
+
+		#Keep track of time, initialize to 60 seconds
 		self.timer = 60
 
+	#Function to update all of our local game data upon receiving information from the server
 	def updateGameData(self, data):
+		
+		#Initialize bulletID and enemy ID lists to empty, use to store ID's we get from server
 		bulletID = []
 		enemyID = []
+
 		#Update Player Positions
 		self.Player1.rect.centerx = data['player1x']
 		self.Player1.rect.centery = data['player1y']
@@ -217,47 +285,51 @@ class GameSpace:
 		self.Gun2.rect.centerx = data['player2x']
 		self.Gun2.rect.centery = data['player2y']
 
+		#Update number of kills each player has
 		self.player1kills = data['player1kills']
 		self.player2kills = data['player2kills']
 
+		#Set player kills and opponent kills depending on what our player ID number is
 		if self.playerID == 1:
 			self.playerKills = self.player1kills
 			self.oKills = self.player2kills
 		else:
 			self.playerKills = self.player2kills
 			self.oKills = self.player1kills
+
+		#Get updated time
 		self.timer = data['time']
 
-		#Update Partner Gun Angle
+		#Update Partner Gun Angle (We update our own gun angle locally to prevent unsmooth rotation
 		angle = data['partnerGunAngle']
+
+		#Update player 2's gun angle if we're player 1
 		if(self.playerID == 1):
 			self.Gun2.image = pygame.transform.rotate(self.Gun2.orig_image, angle)
 			center = self.Gun2.rect.center
 			self.Gun2.rect = self.Gun2.image.get_rect(center=center)
+
+		#Update player 1's gun angle if we're player 2
 		if(self.playerID == 2):
 			self.Gun1.image = pygame.transform.rotate(self.Gun1.orig_image, angle)
 			center = self.Gun1.rect.center
 			self.Gun1.rect = self.Gun1.image.get_rect(center=center)
 
-		#Update Player Angles
-		angle = data['player1Angle']
-		self.Player1.image = pygame.transform.rotate(self.Player1.orig_image, angle)
-		center = self.Player1.rect.center
-		self.Player1.rect = self.Player1.image.get_rect(center=center)
-		angle = data['player2Angle']
-		self.Player2.image = pygame.transform.rotate(self.Player2.orig_image, angle)
-		center = self.Player2.rect.center
-		self.Player2.rect = self.Player2.image.get_rect(center=center)
-
-		#Update Bullets
+		#Update bullet data by going through list of live bullets sent by the server
 		for b in data['bullets']:
+
+			#For every bullet server sends, append ID to bulletID list so we know that it's a live bullet
 			bulletID.append(b['bulletID'])
+
+			#Go through our local list of bullets, when we find a matching ID, we know that we already have that bullet stored, and we can just update its coordinates
 			check = 1
 			for l in self.bullets:
 				if b['bulletID'] == l.ID:
 					l.rect.centerx = b['x']
 					l.rect.centery = b['y']
 					check = 0
+
+			#If we didn't find the bullet in our local list, we must create a new bullet. Use type of bullet to dictate what the bullet's image/color is
 			if check:
 				if(b['type'] == 1):
 					self.bullets.append(Bullet(b['x'], b['y'], b['angle'], b['bulletID'], "blueBullet.jpg"))
@@ -266,13 +338,18 @@ class GameSpace:
 				if(b['type'] == 3):
 					self.bullets.append(Bullet(b['x'], b['y'], b['angle'], b['bulletID'], "redBullet.png"))		 
 
+		#Go through our bullet list, if the server didn't send a bullet with a matching ID, we know that bullet is dead, and we remove it
 		for b in self.bullets:
 			if b.ID not in bulletID:
 				self.bullets.remove(b) 
 
-		#Update Enemies
+		#Update enemies by going through list of live enemies sent by the server
 		for e in data['enemies']:
+
+			#Append the enemies ID number to a list in the same way we did with the bullet
 			enemyID.append(e['enemyID'])
+
+			#Check to see if we already have an enemy with a corresponding ID in our local list of enemies, If we do, we can simply update it's coordinates and angle
 			check = 1
 			for l in self.enemies:
 				if e['enemyID'] == l.ID:
@@ -282,35 +359,48 @@ class GameSpace:
 					center = l.rect.center
 					l.rect = l.image.get_rect(center=center)
 					check = 0
+
+			#If we didn't find the enemy in our local list, we must create a new enemy and add it to our local list
 			if check:
 				self.enemies.append(Enemy(e['x'], e['y'], e['angle'], e['enemyID']))	
 		
+		#Go through the list of ID's and our local list, if we did not receive an enemy with a corresponding ID from the server, we know that enemy is dead and we remove it
 		for e in self.enemies:
 			if e.ID not in enemyID:
 				self.enemies.remove(e) 
 
 		#Update health bar
 		self.player1Health = data['player1Health']
+
+		#Scale the width of the player 1 health bar to correspond to how much health player 1 has
 		r1 = float(self.player1Health) / 10
 		new_width1 = int(self.player1HealthBar.orig_width * r1)
 		self.player1HealthBar.image = pygame.transform.scale(self.player1HealthBar.orig_image, (new_width1, 10))
+
+		#We have new image, so calculate new rect
 		self.player1HealthBar.rect = self.player1HealthBar.image.get_rect()
 		self.player1HealthBar.rect.x = self.player1HealthBar.orig_x
 		self.player1HealthBar.rect.y = self.player1HealthBar.orig_y
 
+		#Scale the width of the player 2 health bar to correspond to how much health player 2 has
 		self.player2Health = data['player2Health']
 		r2 = float(self.player2Health) / 10
 		new_width2 = int(self.player2HealthBar.orig_width * r2)
 		self.player2HealthBar.image = pygame.transform.scale(self.player2HealthBar.orig_image, (new_width2, 10))
+
+		#We have new image, so calculate new rect
 		self.player2HealthBar.rect = self.player2HealthBar.image.get_rect()
 		self.player2HealthBar.rect.x = self.player2HealthBar.orig_x
 		self.player2HealthBar.rect.y = self.player2HealthBar.orig_y
 
-		#Update explosions
+		
+		#Update explosions by going through our local list, decreasing life counts, and removing ones whose lives have reached zero
 		for e in self.explosions:
 			e.life = e.life - 1
 			if(e.life == 0):
 				self.explosions.remove(e)
+
+		#Update explosions by going through list of new explosions sent by server and creating new ones
 		for e in data['explosions']:
 			self.explosions.append(Explosion(e['x'], e['y'], 10))
 
@@ -319,11 +409,18 @@ class GameSpace:
 		self.playHitSound = data['hitSound']
 		self.playSquashSound = data['squashSound']
 		
+
+	#Function to simulate the start screen to the user
 	def startScreen(self,handler,Type):
+
+		#Store our connections and playerID
 		self.connection = handler.connection
 		self.playerID = handler.playerID
 		self.handler = handler
+
+		#Create event package with connection
 		self.event_package = EventPackage(self.connection)
+
 		#Initialize basic game information
 		pygame.init()
 		self.size = self.width, self.height = 650, 500
@@ -331,16 +428,21 @@ class GameSpace:
 		self.screen = pygame.display.set_mode(self.size)
 		pygame.display.set_caption("Player " + str(self.playerID))
 		self.screen.fill(self.black)
-		#Initialize game objects
+
+		#Initialize game objects that we need
 		self.background = Background("startscreen1.jpg")
 		self.Player1 = Player1(self)
 		self.Gun1 = Gun1(self)
 		self.Player2 = Player2(self)
 		self.Gun2 = Gun2(self)
 		check2 = True
+
+		#If type is two, use background that says "Waiting for player 2"
 		if Type == 2:	
 			self.background = Background("startscreen2.jpg")
 		self.screen.blit(self.background.image, self.background.rect)	
+
+		#Set variables for player 1 if you are player 1
 		if self.playerID == 1:
 			self.Player1.rect.centerx = 100
 			self.Player1.rect.centery = 100
@@ -352,6 +454,7 @@ class GameSpace:
 			self.Player1.image = pygame.transform.rotate(self.Player1.orig_image, 90)
 			center = self.Player1.rect.center
 			self.Player1.rect = self.Player1.image.get_rect(center=center)
+		#Else, set variable for player 2
 		else:
 			self.Player2.rect.centerx = 200
 			self.Player2.rect.centery = 200
@@ -363,15 +466,25 @@ class GameSpace:
 			self.Player2.image = pygame.transform.rotate(self.Player2.orig_image, 90)
 			center = self.Player2.rect.center
 			self.Player2.rect = self.Player2.image.get_rect(center=center)
+
+		#Blit image to screen
 		pygame.display.flip()	
+
+		#If type is 1, enter loop that waits for client to click start
 		if Type == 1:
+
+			#Loop until player click on start button, or chooses to exit
 			while 1:
 				for event in pygame.event.get():
 					if event.type == MOUSEBUTTONDOWN:
+
+						#Check to see if mouse is clicked inside button, if yes, send message to server
 						mx,my = pygame.mouse.get_pos()
 						if (mx > 175 and mx < 475 and my > 210 and my < 310):
 							self.connection.transport.write("Clicked")
 							return
+
+					#If user clicks the exit button, send message to server that we are quitting
 					if event.type == pygame.QUIT:
 						self.event_package.setExit()
 						pygame.quit()
@@ -381,6 +494,8 @@ class GameSpace:
 
 	#Main function which drives gameplay
 	def main(self,handler):
+
+		#Here we initialize a bunch of variables and object that are stored locally so can put object on the screen for the user to see. The names are pretty self explanatory, so I won't go through and describe every one
 		self.background = Background("desert-texture.jpg")
 		self.connection = handler.connection
 		self.playerID = handler.playerID
@@ -418,77 +533,50 @@ class GameSpace:
 		self.timeRect.centerx = 320
 		self.timeRect.centery = 30
 		pygame.key.set_repeat(1, 500)
-		#Initiate game loop
+
+
+		#IMPORTANT!!!!
+		#Here we are using the python function looping call to control the clock ticks of our game. 
+		#This function call sets the function to be run(gameloop), and then the start function sets how often to run it. 
+		#Because this time is controlled, we know that each client is sending and receiving data from the server every .01 seconds. 
+		#This way the two games are synchronyzed because the two clients will never have different data for more than .01 seconds. 
+		#Also, the client will only look for events to process only every .01 seconds, this keeps the game operating consistently and smoothly
 		self.lc = task.LoopingCall(self.gameLoop)
 		self.lc.start(.01)
 
-	def gameOver(self,winner):
-		if (winner == 1):
-			self.background = Background("endscreen1.png")
-		elif (winner == 2):
-			self.background = Background("endscreen2.png")
-		else:
-			self.background = Background("endscreen3.png")
-		self.screen.blit(self.background.image, self.background.rect)
-		self.kill1 = self.font.render("Player1 Kills:", 1, (0,0,0))
-		self.killRect1 = self.kill1.get_rect()
-		self.killRect1.centerx = 80
-		self.killRect1.centery = 50
-		self.screen.blit(self.kill1,self.killRect1)	
-		self.kill2 = self.font.render("Player2 Kills:", 1, (0,0,0))
-		self.killRect2 = self.kill2.get_rect()
-		self.killRect2.centerx = 560
-		self.killRect2.centery = 50
-		self.screen.blit(self.kill2,self.killRect2)	
-		self.killCount1 = self.font.render(str(self.player1kills),1,(0,0,0))
-		self.countRect1 = self.killCount1.get_rect()
-		self.countRect1.centerx = 150
-		self.countRect1.centery = 50
-		self.screen.blit(self.killCount1,self.countRect1)
-		self.killCount2 = self.font.render(str(self.player2kills),1,(0,0,0))
-		self.countRect2 = self.killCount2.get_rect()
-		self.countRect2.centerx = 630
-		self.countRect2.centery = 50
-		self.screen.blit(self.killCount2,self.countRect2)
-		pygame.display.flip()
-		while 1:
-			for event in pygame.event.get():
-					if event.type == MOUSEBUTTONDOWN:
-						mx,my = pygame.mouse.get_pos()
-						if (mx > 160 and mx < 485 and my > 260 and my < 350):
-							self.handler.gameData['restart'] = 1
-							self.event_package.restart()
-							self.event_package.send()
-							self.lc.stop()
-							return
-					if event.type == pygame.QUIT:
-						self.event_package.setExit()
-						pygame.quit()
-						self.event_package.send()
-						self.lc.stop()
-						return
-
+	#Game loop function called by looping call
 	def gameLoop(self):
 
-		#Get game info from server and update object information
+		#First we get the new, updated game data from the server, that we know it is sending
 		newData = self.handler.gameData
+
+		#If the time is zero, go to game over loop with name of winner
 		if newData['time'] == 0:
 			self.gameOver(newData['winner'])
 			return
+
+		#If game is not over, call update game data function to transfer all of the data from the server over to our local data
 		self.updateGameData(newData)
-		check = 0
-		#Add user input events to event package and send package to server
+
+		#Process user input by initializing an event package and then looping through events
 		self.event_package = EventPackage(self.connection)
 		for event in pygame.event.get():
+
+			#If mouse was pressed, put event in package
 			if event.type == MOUSEBUTTONDOWN:
 				self.event_package.setMousePressed()
+
+			#If exit button hit, put event in package and send package immediately
 			if event.type == pygame.QUIT:
 				self.event_package.setExit()
 				pygame.quit()
 				self.event_package.send()
 				return
 
+		#Get key's being pressed currently
 		keys = pygame.key.get_pressed()
+		
+		#If a, w, s, or d is being pressed, put event in package
 		if(keys[K_a]):
 			self.event_package.addKeyEvent(K_a)
 		if(keys[K_w]):
@@ -498,18 +586,18 @@ class GameSpace:
 		if(keys[K_d]):
 			self.event_package.addKeyEvent(K_d)
 	
-	
+		#Get mouse coordinates and put them in packge
 		mx, my = pygame.mouse.get_pos()
 		self.event_package.setMouseCoordinates(mx, my)
+
+		#Send our event package to server so it can update the master game data
 		self.event_package.send()
 
 
-		#Send ticks to objects
+		#Send ticks to guns so that our local guns will rotate
 		if newData['player1alive']:
 			self.Gun1.tick()
-			self.Player1.tick()
 		if newData['player2alive']:
-			self.Player2.tick()
 			self.Gun2.tick()
 
 		#Blit objects to screen
@@ -558,4 +646,67 @@ class GameSpace:
 		if(self.playSquashSound):
 			self.squashSound.play()
 
+		#Flip display to present it to user
 		pygame.display.flip()
+
+	
+	#Game over loop which is run when time in game runs out
+	def gameOver(self,winner):
+
+		#Set background image based on who the winner was
+		if (winner == 1):
+			self.background = Background("endscreen1.png")
+		elif (winner == 2):
+			self.background = Background("endscreen2.png")
+		else:
+			self.background = Background("endscreen3.png")
+
+		#Blit images to screen, including text about player kills
+		self.screen.blit(self.background.image, self.background.rect)
+		self.kill1 = self.font.render("Player1 Kills:", 1, (0,0,0))
+		self.killRect1 = self.kill1.get_rect()
+		self.killRect1.centerx = 80
+		self.killRect1.centery = 50
+		self.screen.blit(self.kill1,self.killRect1)	
+		self.kill2 = self.font.render("Player2 Kills:", 1, (0,0,0))
+		self.killRect2 = self.kill2.get_rect()
+		self.killRect2.centerx = 560
+		self.killRect2.centery = 50
+		self.screen.blit(self.kill2,self.killRect2)	
+		self.killCount1 = self.font.render(str(self.player1kills),1,(0,0,0))
+		self.countRect1 = self.killCount1.get_rect()
+		self.countRect1.centerx = 150
+		self.countRect1.centery = 50
+		self.screen.blit(self.killCount1,self.countRect1)
+		self.killCount2 = self.font.render(str(self.player2kills),1,(0,0,0))
+		self.countRect2 = self.killCount2.get_rect()
+		self.countRect2.centerx = 630
+		self.countRect2.centery = 50
+		self.screen.blit(self.killCount2,self.countRect2)
+
+		#Flip display to present it to user
+		pygame.display.flip()
+
+		#Begin loop that exits when user hits "back to start" button or chooses to exit
+		while 1:
+			for event in pygame.event.get():
+					if event.type == MOUSEBUTTONDOWN:
+
+						#Check to see if back to start button is clicked, if so, put event in event package telling the server to restart, send the event package to the server, and return
+						mx,my = pygame.mouse.get_pos()
+						if (mx > 160 and mx < 485 and my > 260 and my < 350):
+							self.handler.gameData['restart'] = 1
+							self.event_package.restart()
+							self.event_package.send()
+							self.lc.stop()
+							return
+
+					#If exit button is clicked, send message to the server and quit
+					if event.type == pygame.QUIT:
+						self.event_package.setExit()
+						pygame.quit()
+						self.event_package.send()
+						self.lc.stop()
+						return
+
+

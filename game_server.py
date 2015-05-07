@@ -336,9 +336,6 @@ class GameHandler:
 		self.player1GunAngle = 270
 		self.player2GunAngle = 270
 
-		self.player1Angle = 90
-		self.player2Angle = 90
-
 		self.player1Kills = 0
 		self.player2Kills = 0
 
@@ -705,48 +702,48 @@ class GameHandler:
 				if self.player1x < 622: #If player is within the screen boundries
 					if(self.checkXMove(self.player1x + 31, self.player2x - 30, self.player1y, self.player2y) or self.player2alive == 0 or self.player1x > self.player2x): #If our doesn't hit another player
 						self.player1x = self.player1x + 1 #Increase player1 xpos pos by one
-						self.player1Angle = 90 #Set the new player angle
+						
 			if playerID == 2: #If player ID is 1
 				if self.player2x < 622:	#If player is within the screen boundries	
 					if(self.checkXMove(self.player2x + 31, self.player1x - 30, self.player1y, self.player2y) or self.player1alive == 0 or self.player2x > self.player1x): #If our player doesn't hit another player		
 						self.player2x = self.player2x + 1 #Increase player2 xpos by one
-						self.player2Angle = 90 #Set the new player angle
+						
 		#Other direction moves are essentially the same as moving Right
 		if(direction == 'Left'):
 			if playerID == 1:
 				if self.player1x > 28:
 					if(self.checkXMove(self.player2x + 30, self.player1x - 31, self.player1y, self.player2y) or self.player2alive == 0 or self.player1x < self.player2x):
 						self.player1x = self.player1x - 1
-						self.player1Angle = 270
+						
 			if playerID == 2:
 				if self.player2x > 28:
 					if(self.checkXMove(self.player1x + 30, self.player2x - 31, self.player1y, self.player2y) or self.player1alive == 0 or self.player2x < self.player1x):
 						self.player2x = self.player2x - 1
-						self.player2Angle = 270
+						
 
 		if(direction == 'Up'):
 			if playerID == 1:
 				if self.player1y > 15:
 					if(self.checkYMove(self.player1x, self.player2x, self.player2y + 20, self.player1y - 21) or self.player2alive == 0 or self.player1y < self.player2y):
 						self.player1y = self.player1y - 1
-						self.player1Angle = 180
+						
 			if playerID == 2:
 				if self.player2y > 15:
 					if(self.checkYMove(self.player1x, self.player2x, self.player1y + 20, self.player2y - 21) or self.player1alive == 0  or self.player2y < self.player1y):
 						self.player2y = self.player2y - 1
-						self.player2Angle = 180
+						
 
 		if(direction == 'Down'):
 			if playerID == 1:
 				if self.player1y < 485:
 					if(self.checkYMove(self.player1x, self.player2x, self.player1y + 21, self.player2y - 20) or self.player2alive == 0 or self.player1y > self.player2y):
 						self.player1y = self.player1y + 1
-						self.player1Angle = 0
+						
 			if playerID == 2:
 				if self.player2y < 485:
 					if(self.checkYMove(self.player1x, self.player2x, self.player2y + 21, self.player1y - 20) or self.player1alive == 0 or self.player2y > self.player1y):
 						self.player2y = self.player2y + 1
-						self.player2Angle = 0
+						
 
 		return
 
@@ -819,10 +816,6 @@ class GameHandler:
 			data['winner'] = 2 #Player2 is winning
 		else:
 			data['winner'] = 0 #Else game is tied
-
-		#Set some other data
-		data['player1Angle'] = self.player1Angle
-		data['player2Angle'] = self.player2Angle
 	
 		data['restart'] = 0
 
