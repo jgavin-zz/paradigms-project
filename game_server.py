@@ -23,23 +23,23 @@ class TempProtocol(LineReceiver):
 
     	def connectionMade(self):
 		self.handler.temp = self
-		if(self.handler.connectionMade == 0):
-			self.handler.connectionMade = 1
-			self.sendLine("1")
+		if(self.handler.connectionMade == 0): #If this is the first client to connect to the server
+			self.handler.connectionMade = 1 #Set our check to say one client has connenct
+			self.sendLine("1") #Tell the client it is player 1
 		else:
-			self.sendLine("2")
+			self.sendLine("2") #Else tell the client it is player 2
 		return
 
 	def dataReceived(self, data):
-		if data == "Clicked":
-			self.handler.playersStarted += 1
-			self.transport.write("3")
-		if data == "Kill":
-			self.transport.loseConnection()
-			if reactor.running:
+		if data == "Clicked" and self.handler.playersStarted == 0: #The first person has clicked "Start Game"
+			self.handler.playersStarted += 1 #Increase the number of players started
+			self.transport.write("3") #Tell the client to display the "waiting for other player" screen
+		elif data == "Clicked" and self.handler.playersStarted == 1: #The second player has started
+			self.handler.started = 1 #Let the server know we have started the game
+		if data == "Kill": #A user has quit from the start screen
+			self.transport.loseConnection() #End the connection
+			if reactor.running: #If the reactor hasn't already been stopped, stop it
 				reactor.stop()
-		if self.handler.playersStarted == 2:
-			self.handler.started = 1
 
 #Protocol for player1 connection
 class Player1Protocol(LineReceiver):
@@ -49,24 +49,25 @@ class Player1Protocol(LineReceiver):
 
     	def connectionMade(self):
 		self.handler.player1Connection = self
+		#If we should start, start the game
 		if self.handler.started:
-			self.handler.tellPlayersToStart()
-			self.handler.started = 0
+			self.handler.tellPlayersToStart() #Start the game
+			self.handler.started = 0 #Make sure we dont start a second time
 
 	def dataReceived(self, data):
-		if data == "Clicked":
-			self.handler.playersStarted += 1
-			if self.handler.playersStarted == 1:
-				self.sendLine("3")
-			elif self.handler.playersStarted == 2:
-				self.sendLine("4")
-		elif data == "Ready":
-			self.handler.tellPlayersToStart()
-		elif data == "Kill":
-			self.transport.loseConnection()
-			if reactor.running:
+		if data == "Clicked": #If a user has clicked the start screen
+			self.handler.playersStarted += 1 #Increase the amount of players started by one
+			if self.handler.playersStarted == 1: #If we only have one player started
+				self.sendLine("3") #Have the client display the "wating for other player" screen
+			elif self.handler.playersStarted == 2: #If we have both player started
+				self.sendLine("4") #Confirm with the client player is ready
+		elif data == "Ready": #If both players are ready
+			self.handler.tellPlayersToStart() #Tell the players to start the game
+		elif data == "Kill": #If a player has exited
+			self.transport.loseConnection() #End the connection
+			if reactor.running: #If the reactor is still running, stop it
 				reactor.stop()	
-		else:
+		else: #If we have recieved normal player events, process the events
 			data = json.loads(data)
 			self.handler.processPlayer1Events(data)	
 		return
@@ -74,6 +75,7 @@ class Player1Protocol(LineReceiver):
 #Protocol for player2 connection
 class Player2Protocol(LineReceiver):
 
+	#Same exact code as Player1Protocol
 	def __init__(self, handler):
 		self.handler = handler
 
@@ -95,7 +97,8 @@ class Player2Protocol(LineReceiver):
 			self.handler.tellPlayersToStart()
 		elif data == "Kill":
 			self.transport.loseConnection()
-			self.Player1Connection.transport.loseConnection()
+			if reactor.running:
+				reactor.stop()
 		else:
 			data = json.loads(data)
 			self.handler.processPlayer2Events(data)		
@@ -129,41 +132,42 @@ class Player2Factory(Factory):
     	def buildProtocol(self, addr):
        		return Player2Protocol(self.handler)
 
-
+#Our enemy class
 class EnemyData:
 
 	def __init__(self, enemyID):
-
-		self.enemyID = enemyID
-		self.target = 0
-		self.xcenter = 450
+		#Init our enemy
+		self.enemyID = enemyID #Give the enemy a unique ID
+		self.target = 0 #No target to start
+		#Default position and angle for an enemy
+		self.xcenter = 450 
 		self.ycenter = 200
 		self.angle = 90
-		self.alive = 1
+		self.alive = 1 #Enemies begin as alive
 
+	#Sets the target of our enemy to the closest player, give the two players positions
 	def setTarget(self, x1, y1, x2, y2):
-
 		dx1 = self.xcenter - x1
 		dy1 = self.ycenter - y1
 
 		dx2 = self.xcenter - x2
 		dy2 = self.ycenter - y2
 	
-		if( hypot(dx1, dy1) <= hypot(dx2, dy2) ):
+		if( hypot(dx1, dy1) <= hypot(dx2, dy2) ):#Find out if player 1 or two is closer, then set the enemy target
 			self.target = 1
 		else:
 			self.target = 2
 		
 
-	def move(self, playerxcenter, playerycenter):
+	def move(self, playerxcenter, playerycenter): #Move the enemy
 
-		#First set angle
+		#First set new angle
 		dx = self.xcenter - playerxcenter
 		dy = self.ycenter - playerycenter
 		rangle = atan2(dy, -dx)
 		self.angle  = degrees(rangle) - 90
 		
-		#Move x and y
+		#Move x and y toward the given player positons
 		if( hypot(dx, dy) > 100 ):
 			angle = self.angle + 90
 			angle = radians(angle)
@@ -171,46 +175,51 @@ class EnemyData:
 			self.xcenter = self.xcenter + int( (cos(angle) * 20)/15 )
 			self.ycenter = self.ycenter - int( (sin(angle) * 20)/15 )
 
-	def getPos(self):
+	def getPos(self): #Return the position of the enemy
 		return self.xcenter, self.ycenter	
 		
-
+#Class for our bullet
 class BulletData:
 
+	#Intialize the bullet with default data
 	def __init__(self, bulletID, playerID, playerxcenter, playerycenter, angle, gunLength, btype = 0):
 
-		self.bulletID = bulletID
-		self.playerID = playerID
+		self.bulletID = bulletID #Give bullet a unique bullet ID
+		self.playerID = playerID #Tell bullet what player (or enemy) it was shot by
+		#Default position and velocity for the bullet
 		self.xcenter = 0.0
 		self.ycenter = 0.0
 		self.vx = 0.0
 		self.vy = 0.0
-		self.angle = degrees(angle) + 90
-		self.alive = 1
-
-		self.setInitialPosition(playerxcenter, playerycenter, angle, gunLength)
-		self.setInitialVelocity(angle)
-		self.type = btype
-
+		self.angle = degrees(angle) + 90 #Set starting angle
+		self.alive = 1 #Bullets start out as alive
+		self.type = btype #Set bullet type (player or enemy)
+	
+		self.setInitialPosition(playerxcenter, playerycenter, angle, gunLength) #Set the ititial position of our bullet
+		self.setInitialVelocity(angle) #Set the initial angle of our bullet
+	
+	#Calculate our bullets initial position
 	def setInitialPosition(self, playerxcenter, playerycenter, angle, gunLength):
 	
 		angle = self.angle + 90
 
 		angle = radians(angle)
 
-		self.xcenter = playerxcenter + cos(angle) * gunLength/2
+		#Calculate the positon given our player location, player angle, and length of player gun
+		self.xcenter = playerxcenter + cos(angle) * gunLength/2 
 		self.ycenter = playerycenter - sin(angle) * gunLength/2		
 
 	def setInitialVelocity(self, angle):
-
+		#Set the intial velocity of our bullet given the player angle
 		self.vx = (cos(angle) * 10)/3
 		self.vy = (sin(angle) * 10)/3
 
 	def move(self):
-
+		#Move the bullet by one unit of velocity
 		self.xcenter = self.xcenter - self.vx
 		self.ycenter = self.ycenter + self.vy
 
+	#Return the bullet's position
 	def getPos(self):
 		return self.xcenter,self.ycenter
 
@@ -222,71 +231,93 @@ class GameHandler:
 	#Initialize to connections to empty string and create deferred queue
 	def __init__(self):
 
-		self.connectionMade = 0
-		self.playersStarted = 0
-		self.player1Connection = ''
+		self.connectionMade = 0 #Keeps track to see if we have made a connection yet
+		self.playersStarted = 0 #The amount of players that have started the game
+		
+		#Stores the connections to the two servers
+		self.player1Connection = '' 
 		self.player2Connection = ''
 
+		#Default positon for the players
 		self.player1x = 100
 		self.player1y = 100
 		self.player2x = 200
 		self.player2y = 200
 		
+		#Players start with 10 health
 		self.player1health = 10
 		self.player2health = 10
 
+		#Players start out as alive
 		self.player1alive = 1
 		self.player2alive = 1
 
+		#Players gun starting angle
 		self.player1GunAngle = 270
 		self.player2GunAngle = 270
 
+		#Players starting angle
 		self.player1Angle = 90
 		self.player2Angle = 90
 
+		#Players start with 0 kills
 		self.player1Kills = 0
 		self.player2Kills = 0
 
+		#How long a player is held out from the game when he dies (in seconds)
 		self.delay = 5
 
+		#Stores time a player died
 		self.player1DeadTime = 0
 		self.player2DeadTime = 0
 
+		#The angle from our player to the mouse		
 		self.r1Angle = 0
 		self.r2Angle = 0
 
+		#Length of the gun on our tank
 		self.gunLength = 80
 
+		#How long the game lasts (in seconds)
 		self.timer = 60	
 					
+		#Arrays of our various objects
 		self.enemies = []
 		self.bullets = []
 		self.explosions1 = []
 		self.explosions2 = []
 
+		#Counter for the game
 		self.gamecounter = 0
 		
-		self.check = 0
+		#Keeps count of how many bullets and enemies created for IDing
 		self.IDcount = 0
 		self.eCount = 0
 
+		#Check to see if we have started the game
 		self.started = 0
 
-		self.number = 200
+		self.enemyCount = 0
 
-		self.restartCheck = 0
+		self.number = 200 #Determines how fast enemies appear
 
-		self.temp = ""
+		self.restartCheck = 0 #Check to se if we have restarted yet
 
-		self.gunSound = 0
+		self.temp = "" #Store our initial connection
+
+		#Sound checks
+		self.gunSound = 0 
 		self.squashSound = 0
 		self.hitSound = 0
 
+	#Tell our players to start the game
 	def tellPlayersToStart(self):
-		self.startTime = time.time()
+		self.startTime = time.time() #Set our start time
+		#Tell both players to start game
 		self.sendGameData(1)
 		self.sendGameData(2)
 
+	#Reset all values to their default
 	def reset(self):
 		self.connectionMade = 0
 		self.playersStarted = 0
@@ -325,183 +356,196 @@ class GameHandler:
 					
 		self.enemies = []
 		self.bullets = []
+		self.explosions1 = []
+		self.explosions2 = []
 
 		self.gamecounter = 0
 		
-		self.check = 0
 		self.IDcount = 0
 		self.eCount = 0
 
 		self.started = 0
 
 		self.number = 200
+		
+		self.enemyCount = 0
 
 		self.restartCheck = 0
 
+	#Handle Player1 Events
 	def processPlayer1Events(self, events):
-
-		self.explosions1 = []
-		if events['restart'] == "1":
-			self.player1Connection.sendLine("1")
-			if not self.restartCheck:
-				self.reset()
-				self.restartCheck = 1
+		self.explosions1 = [] #Reset the explosions array
+		if events['restart'] == "1": #If our event is restart
+			self.player1Connection.sendLine("1") #Tell the client to restart
+			if not self.restartCheck: #If we havent reset already
+				self.reset() #Reset
+				self.restartCheck = 1 #Set reset check so we dont reset next time
 				return
 			else:
-				self.restartCheck = 0
+				self.restartCheck = 0 #Set reset check so we do reset next time
+				return
 
-		if events['exit'] == "1":
-			self.player1Connection.transport.loseConnection()
+		if events['exit'] == "1": #If our event is exit
+			#End all connections
+			self.player1Connection.transport.loseConnection() 
 			self.player2Connection.transport.loseConnection()
 			self.temp.transport.loseConnection()
+			#If we havent stopped the reactor already, stop it
 			if reactor.running:
 				reactor.stop()
 			return
 		
-		self.gamecounter = self.gamecounter + 1
-		if(self.gamecounter%int(self.number) == 0 or self.gamecounter == 10):
-			self.enemies.append(EnemyData(self.eCount))
+		self.gamecounter = self.gamecounter + 1 #Increase out game counter
+		if((self.gamecounter%int(self.number) == 0 or self.gamecounter == 10) and self.enemyCount < 15): #Meaning it is time to create an enemy
+			self.enemies.append(EnemyData(self.eCount)) #Create an enemy and add it to the enemy array
 			random.seed()
-			number = random.randrange(0,4,1)
-			if number == 0:
+			number = random.randrange(0,4,1) #Choose a random number from 0 to 3
+			if number == 0: #If the number is 0, start the enemy in the top left corner
 				self.enemies[len(self.enemies) - 1].xcenter = 60
 				self.enemies[len(self.enemies) - 1].ycenter = 60 
-			elif number == 1:
+			elif number == 1: #If the number is 1, start the enemy in the bottom left corner
 				self.enemies[len(self.enemies) - 1].xcenter = 60
 				self.enemies[len(self.enemies) - 1].ycenter = 440
-			elif number == 2:
+			elif number == 2: #If the number is 2, start the enemy in the top right corner
 				self.enemies[len(self.enemies) - 1].xcenter = 590
 				self.enemies[len(self.enemies) - 1].ycenter = 60  
-			else:
+			else: #If the number is 3, start the enemy in the bottom right corner
 				self.enemies[len(self.enemies) - 1].xcenter = 590
 				self.enemies[len(self.enemies) - 1].ycenter = 440
-			self.enemies[len(self.enemies) - 1].setTarget(self.player1x, self.player1y, self.player2x, self.player2y)
-			self.eCount+=1
+			self.enemies[len(self.enemies) - 1].setTarget(self.player1x, self.player1y, self.player2x, self.player2y) #Set the enemy's target
+			self.eCount+=1 #Increase our enemy counter
+			self.enemyCount += 1
 
-		if not self.player1alive and time.time() - self.player1DeadTime > self.delay:
+		if not self.player1alive and time.time() - self.player1DeadTime > self.delay: #If our player isn't alive, but has been dead for over 5 seconds
 			random.seed()
 			while 1:
-				newXpos = random.randrange(100,550,1)
-				newYpos = random.randrange(100,400,1)
+				newXpos = random.randrange(100,550,1) #Choose a random x positon
+				newYpos = random.randrange(100,400,1) #Choose a random y position
+				#Make sure the new position won't put the player on top of another player
 				if newXpos >= self.player2x - 60 and newXpos <= self.player2x + 60:
 					if newYpos >= self.player2y - 50 and newYpos <= self.player2y + 50:
 						continue
 				check = 0
+				#Make sure the new position won't put the player on top of an enemy
 				for e in self.enemies:
 					if newXpos >= e.xcenter - 50 and newXpos <= e.xcenter + 50:
 							if newYpos >= e.ycenter - 40 and newYpos <= e.ycenter + 40:
 								check = 1
 				if check:
 					continue
-				break
+				break #If we aren't on top of a player or enemy, stop picking new positions
+			#Put the player at the new position
 			self.player1x = newXpos
 			self.player1y = newYpos	
-			self.player1alive = 1
-			self.player1health = 10
+			self.player1alive = 1 #Set the player back to alive
+			self.player1health = 10 #Reset the player health
 
+		#Get x and y mouse position
 		mx = events['mx']
 		my = events['my']
-		#if events['exit']:
-		#	self.exitGame()
 
-		direction = events["keyPressed"]
-		if( direction != '' and self.player1alive):
-			self.movePlayer(1, direction)
+		direction = events["keyPressed"] #Get the direction of our key press
+		if( direction != '' and self.player1alive): #If the player pressed a key and the player is alive
+			self.movePlayer(1, direction) #Move the player in the key press direction
 
-		self.computeAngle(1, mx, my)
+		self.computeAngle(1, mx, my) #Compute the angle from player 1 to the mouse position
 
 		#Move bullets
 		for b in self.bullets:
-			if(b.playerID == 1 and b.alive == 1):
-				b.move()
-				bulletX, bulletY = b.getPos()
-				if self.player2alive:
+			if(b.playerID == 1 and b.alive == 1): #If the bullet was made by player 1 and is alive
+				b.move() #Move the bullet
+				bulletX, bulletY = b.getPos() #Get the new position of the bullet
+				if self.player2alive: #If player 2 is alive
+					#See if the bullet has hit player2
 					if bulletX >= self.player2x - 30 and bulletX <= self.player2x + 30:
 						if bulletY >= self.player2y - 20 and bulletY <= self.player2y + 20:
-							if b in self.bullets:
+							if b in self.bullets: #If the bullet is it the list, remove it
 									self.bullets.remove(b)
-							if b.type == 3:
-								self.player2health -=1
-								if self.player2health == 0:
-									self.player2alive = 0
-									self.player2DeadTime = time.time()
+							if b.type == 3: #If the bullet is an enemy bullet
+								self.player2health -=1 #Decrease player2s health
+								if self.player2health == 0: #If player2s health is 0
+									self.player2alive = 0 #Set player2 to dead
+									self.player2DeadTime = time.time() #Store the time player2 died
 							continue
 						
-					if bulletX <= 0 or bulletY <= 0 or bulletX >= 650 or bulletY >= 500:
-						if b in self.bullets:
+					if bulletX <= 0 or bulletY <= 0 or bulletX >= 650 or bulletY >= 500: #If the bullet is off the map
+						if b in self.bullets: #If then bullet is in the list, remove it
 							self.bullets.remove(b)
 						continue
 
-				for e in self.enemies:
+				for e in self.enemies: #Iterate over all enemies
+						#If the bullet has hit an enemy
 						if bulletX >= e.xcenter - 20 and bulletX <= e.xcenter + 20:
 							if bulletY >= e.ycenter - 10 and bulletY <= e.ycenter + 10:
-								self.explosions1.append({'x': bulletX, 'y': bulletY})
-								if b in self.bullets:
+								self.explosions1.append({'x': bulletX, 'y': bulletY}) #Create an explosion
+								if b in self.bullets: #If the bullet is in the list, remove it
 									self.bullets.remove(b)
-								if e in self.enemies:
-									self.enemies.remove(e)	
-								if self.number > 80:
+								if e in self.enemies: #If the enemy is in the list, remove it
+									self.enemies.remove(e)
+									self.enemyCount -= 1	
+								if self.number > 80: #If our enemy creation timer isn't too small, decrease it
 									self.number *= .95
-								if b.type != 3:
-									self.player1Kills += 1
+								if b.type != 3: #If our bullet came from player1
+									self.player1Kills += 1 #Increase player1 kills
 
-								self.hitSound = 1						
-		
+								self.hitSound = 1 #We should make a hit sound
 								continue	
-			if (b.type == 3):
-				 bulletX, bulletY = b.getPos()
-				 if self.player2alive:
+			if (b.type == 3): #If the bullet was created by an enemy
+				 bulletX, bulletY = b.getPos() #Get the bullets position
+				 if self.player2alive: #If player2 is alive
+					#Check to see if the bullet hit player2
 				 	if bulletX >= self.player2x - 30 and bulletX <= self.player2x + 30:
 						if bulletY >= self.player2y - 20 and bulletY <= self.player2y + 20:
-							self.explosions1.append({'x': bulletX, 'y': bulletY})
-							if b in self.bullets:
+							self.explosions1.append({'x': bulletX, 'y': bulletY}) #Create an explosion
+							if b in self.bullets: #Remove the bullet if it is in the list
 								self.bullets.remove(b)
-							self.player2health -=1
-							if self.player2health == 0:
-								self.player2alive = 0
-								self.player2DeadTime = time.time()
+							self.player2health -=1 #Decrease player2s health
+							if self.player2health == 0: #If player 2 has zero health
+								self.player2alive = 0 #Set player2 to dead
+								self.player2DeadTime = time.time() #Set the time player2 died
 
-							self.hitSound = 1			
+							self.hitSound = 1 #We should make a hit sound		
 			
 							continue
+					#If the bullet has gone outside the map
 					if bulletX <= 0 or bulletY <= 0 or bulletX >= 650 or bulletY >= 500:
-						if b in self.bullets:
+						if b in self.bullets: #If the bullet is in the list, remove it
 							self.bullets.remove(b)
 
-		if( events["mouseEvent"] == 'Pressed' and self.player1alive):
-			self.bullets.append( BulletData(self.IDcount, 1, self.player1x, self.player1y, self.r1Angle, self.gunLength, 1))
-			self.IDcount+=1
-			self.gunSound = 1
+		if( events["mouseEvent"] == 'Pressed' and self.player1alive): #If player 1 pressed the mouse and is alive
+			self.bullets.append( BulletData(self.IDcount, 1, self.player1x, self.player1y, self.r1Angle, self.gunLength, 1)) #Create a bullet, starting at player 1, heading in the direction from player1 to mouse
+			self.IDcount+=1 #Increase the bullet counter
+			self.gunSound = 1 #Make a gun sound
 
-		for e in self.enemies:
-			if self.player1alive and self.player2alive:
-				e.setTarget(self.player1x, self.player1y, self.player2x, self.player2y)
-			elif self.player1alive:
-				e.target = 1
-			elif self.player2alive:
-				e.target = 2
-			if(e.target == 1 and e.alive == 1):
-				e.move(self.player1x, self.player1y)
-				if(random.randrange(0,100,1) == 1):
-					if self.player1alive:
-						self.enemyFire(e.getPos(),1,3)
-						self.gunSound = 1
+		for e in self.enemies: #Iterate over all enemies
+			if self.player1alive and self.player2alive: #If both players are alive
+				e.setTarget(self.player1x, self.player1y, self.player2x, self.player2y) #Change enemy target to the nearest player
+			elif self.player1alive: #If only player1 is alive
+				e.target = 1 #Set target to player1
+			elif self.player2alive: #If only player2 is alive
+				e.target = 2 #Set target to player2
+			if(e.target == 1 and e.alive == 1): #If the enemies target is 1 and is alive
+				e.move(self.player1x, self.player1y) #Move the enemy toward player 1
+				if(random.randrange(0,100,1) == 0): #If a random numer betweem 0-99 is 0 (this gets called alot)
+					if self.player1alive: #If player1 is alive
+						self.enemyFire(e.getPos(),1,3) #Fire toward player 1
+						self.gunSound = 1 #Make a gun sound
 
 		#Check to see if we ran over an enemy
 		for e in self.enemies:
 			if(e.xcenter < self.player1x + 28 and e.xcenter > self.player1x - 28 and e.ycenter < self.player1y + 18 and e.ycenter > self.player1y - 18):
-				self.enemies.remove(e)
-				self.player1Kills += 1
-				self.squashSound = 1
-				if self.number > 80:
+				if e in self.enemies: #If the enemy is in enemies, remove it
+					self.enemies.remove(e)
+					self.enemyCount -= 1
+				self.player1Kills += 1 #Increase player1 kills
+				self.squashSound = 1 #Create a squash sound
+				if self.number > 80: #If our enemy creation timer isn't too small, decrease it
 					self.number *= .95
-			
-
-		self.sendGameData(1)
+		self.sendGameData(1) #Send game data for player one to the client
 		return
 
 	def processPlayer2Events(self, events):
-
+		#The same exact thing as processPlayer2Events, just with the players switched
 		self.explosions2 = []
 		if events['restart'] == "1":
 			self.player2Connection.transport.write("1")
@@ -580,6 +624,7 @@ class GameHandler:
 									self.bullets.remove(b)
 								if e in self.enemies:
 									self.enemies.remove(e)
+									self.enemyCount -= 1
 								if self.number > 80:
 									self.number *= .95
 								if b.type != 3:
@@ -626,7 +671,7 @@ class GameHandler:
 				e.target = 2
 			if(e.target == 2 and e.alive == 1):
 				e.move(self.player2x, self.player2y)
-				if(random.randrange(0,100,1) == 1):
+				if(random.randrange(0,100,1) == 0):
 					if self.player2alive:
 						self.enemyFire(e.getPos(),2,3)
 						self.gunSound = 1
@@ -634,7 +679,9 @@ class GameHandler:
 		#Check to see if we ran over an enemy
 		for e in self.enemies:
 			if(e.xcenter < self.player2x + 28 and e.xcenter > self.player2x - 28 and e.ycenter < self.player2y + 18 and e.ycenter > self.player2y - 18):
-				self.enemies.remove(e)
+				if e in self.enemies:
+					self.enemies.remove(e)
+					self.enemyCount -= 1
 				self.player2Kills += 1
 				self.squashSound = 1
 				if self.number > 80:
@@ -644,26 +691,27 @@ class GameHandler:
 		
 
 		self.sendGameData(2)
-
+		
+		#Reset gun sounds
 		self.gunSound = 0
 		self.squashSound = 0
 		self.hitSound = 0
 
 		return
 
-	def movePlayer(self, playerID, direction):
-		if(direction == 'Right'):
-			if playerID == 1:
-				if self.player1x < 622:
-					if(self.checkXMove(self.player1x + 31, self.player2x - 30, self.player1y, self.player2y) or self.player2alive == 0 or self.player1x > self.player2x):
-						self.player1x = self.player1x + 1
-						self.player1Angle = 90
-			if playerID == 2:
-				if self.player2x < 622:		
-					if(self.checkXMove(self.player2x + 31, self.player1x - 30, self.player1y, self.player2y) or self.player1alive == 0 or self.player2x > self.player1x):		
-						self.player2x = self.player2x + 1
-						self.player2Angle = 90
-
+	def movePlayer(self, playerID, direction): #Move the player in a given direction
+		if(direction == 'Right'): #If direction is right
+			if playerID == 1: #If player ID is 1
+				if self.player1x < 622: #If player is within the screen boundries
+					if(self.checkXMove(self.player1x + 31, self.player2x - 30, self.player1y, self.player2y) or self.player2alive == 0 or self.player1x > self.player2x): #If our doesn't hit another player
+						self.player1x = self.player1x + 1 #Increase player1 xpos pos by one
+						self.player1Angle = 90 #Set the new player angle
+			if playerID == 2: #If player ID is 1
+				if self.player2x < 622:	#If player is within the screen boundries	
+					if(self.checkXMove(self.player2x + 31, self.player1x - 30, self.player1y, self.player2y) or self.player1alive == 0 or self.player2x > self.player1x): #If our player doesn't hit another player		
+						self.player2x = self.player2x + 1 #Increase player2 xpos by one
+						self.player2Angle = 90 #Set the new player angle
+		#Other direction moves are essentially the same as moving Right
 		if(direction == 'Left'):
 			if playerID == 1:
 				if self.player1x > 28:
@@ -702,54 +750,51 @@ class GameHandler:
 
 		return
 
+	#Check to make sure movement in the X direction wont hit another player
 	def checkXMove(self, leftX, rightX, y1, y2):
 		if(leftX >= rightX and abs(y1-y2) <= 40):
 			return 0
 		else:
 			return 1	
-
+	#Check to make sure movement in the Y direction wont hit another player
 	def checkYMove(self, x1, x2, topY, bottomY):
 		if(topY >= bottomY and abs(x1-x2) <= 60):
 			return 0
 		else:
 			return 1
+	
+	#Computer the angle from a player positon to the mouse positon
+	def computeAngle(self, playerID, mx, my): 
 
-	def computeAngle(self, playerID, mx, my):
-
-		if(playerID == 1):
+		if(playerID == 1): #If playerID is 1 set the player1 angle
 			dx = mx - (self.player1x)
 			dy = my - (self.player1y)
 			self.r1Angle = atan2(dy, -dx)
 			self.player1GunAngle  = degrees(self.r1Angle) + 90
 
-		if(playerID == 2):
+		if(playerID == 2): #If playerID is 2 set the player2 angle
 			dx = mx - (self.player2x)
 			dy = my - (self.player2y)
 			self.r2Angle = atan2(dy, -dx)
 			self.player2GunAngle  = degrees(self.r2Angle) + 90
 
-	def exitGame(self):
-		data = {}
-		data['exit'] = 1
-		data = json.dumps(data)
-		self.player1Connection.transport.write(data)
-		self.player2Connection.transport.write(data)
-
-	def enemyFire(self,enemyPos,playerID,bID):
-		enemyX,enemyY = enemyPos
-		if playerID == 1:
+	def enemyFire(self,enemyPos,playerID,bID): #Fire a bullet from an enemy to a player
+		enemyX,enemyY = enemyPos #Get enemy pos
+		if playerID == 1: #If playerID is 1 user player1 pos
 			dx = self.player1x - enemyX
 			dy = self.player1y - enemyY
-		else:
+		else: #else use player2 pos
 			dx = self.player2x - enemyX
 			dy = self.player2y - enemyY
-		angle = atan2(dy, -dx)
+		angle = atan2(dy, -dx) #compunte angle
 
-		self.bullets.append(BulletData(self.IDcount, playerID, enemyX, enemyY, angle, self.gunLength,bID))
-		self.IDcount += 1
+		self.bullets.append(BulletData(self.IDcount, playerID, enemyX, enemyY, angle, self.gunLength,bID)) #create bullet
+		self.IDcount += 1 #increase bullet counter
 
+	#Send game data to a given player's client connection
 	def sendGameData(self, playerID):
 
+		#Set some data
 		data = {}
 		data['player1x'] = self.player1x
 		data['player1y'] = self.player1y
@@ -760,50 +805,56 @@ class GameHandler:
 		data['player1kills'] = self.player1Kills
 		data['player2kills'] = self.player2Kills
 		data['exit'] = 0
-		data['time'] = int(round(self.timer - (time.time() - self.startTime)))
+		data['time'] = int(round(self.timer - (time.time() - self.startTime))) #Time = previous time - difference between current time and start time
 
-		if(playerID == 1):
+		if(playerID == 1): #If player ID 1 use player2 gun angle and player1 kills
 			data['partnerGunAngle'] = self.player2GunAngle
 			data['kills'] = self.player1Kills
-		if(playerID == 2):
+		if(playerID == 2): #else use player1 gun angle and player2 kills
 			data['partnerGunAngle'] = self.player1GunAngle
 			data['kills'] = self.player2Kills
-		if (self.player1Kills > self.player2Kills):
-			data['winner'] = 1
-		elif (self.player1Kills < self.player2Kills):
-			data['winner'] = 2
+		if (self.player1Kills > self.player2Kills): #If player1 has more kills than player2
+			data['winner'] = 1 #Player1 is currently winning
+		elif (self.player1Kills < self.player2Kills): #if player2 has more kills than player1 
+			data['winner'] = 2 #Player2 is winning
 		else:
-			data['winner'] = 0
+			data['winner'] = 0 #Else game is tied
 
+		#Set some other data
 		data['player1Angle'] = self.player1Angle
 		data['player2Angle'] = self.player2Angle
 	
 		data['restart'] = 0
 
+		#Store all enemies and enemy info in an array
 		data['enemies'] = []
 		for e in self.enemies:
 			data['enemies'].append({'enemyID' : e.enemyID, 'x':e.xcenter, 'y':e.ycenter, 'angle':e.angle})
+		#Store all bullets and bullet info in an array
 		data['bullets'] = []
 		for b in self.bullets:
 			data['bullets'].append({'bulletID' : b.bulletID, 'x':b.xcenter, 'y':b.ycenter, 'angle':b.angle,'type':b.type})
 
+		#Set health data
 		data['player1Health'] = self.player1health
 		data['player2Health'] = self.player2health
 
+		#Store explosions in an array
 		data['explosions'] = []
 		for e in self.explosions1:
 			data['explosions'].append({'x': e['x'], 'y': e['y']})
 		for e in self.explosions2:
 			data['explosions'].append({'x': e['x'], 'y': e['y']})
-				
+		
+		#Set hit sound checks		
 		data['hitSound'] = self.hitSound
 		data['gunSound'] = self.gunSound
 		data['squashSound'] = self.squashSound
 
 		data = json.dumps(data)
-		if playerID == 1:
+		if playerID == 1: #If we are sending to player1 send data to player1Connection
 			self.player1Connection.transport.write(data)
-		if playerID == 2:
+		if playerID == 2: #If we are sending to player2 send data to player2Connection
 			self.player2Connection.transport.write(data)
 
 #Create connectionHandler and pass it to factories

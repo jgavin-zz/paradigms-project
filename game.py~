@@ -397,11 +397,11 @@ class GameSpace:
 		self.squashSound = pygame.mixer.Sound('squashSound.ogg')
 		self.playSquashSound = 0
 		self.font = pygame.font.SysFont("monospace",15)
-		self.player1tag = self.font.render("Player 1", 1, (255,255,0))
+		self.player1tag = self.font.render("Rangers", 1, (255,255,0))
 		self.p1rect = self.player1tag.get_rect()
 		self.p1rect.centerx = 125
 		self.p1rect.centery = 25
-		self.player2tag = self.font.render("Player 2", 1, (255,255,0))
+		self.player2tag = self.font.render("Pussyfagits", 1, (255,255,0))
 		self.p2rect = self.player2tag.get_rect()
 		self.p2rect.centerx = 525
 		self.p2rect.centery = 25
@@ -420,7 +420,7 @@ class GameSpace:
 		pygame.key.set_repeat(1, 500)
 		#Initiate game loop
 		self.lc = task.LoopingCall(self.gameLoop)
-		self.lc.start(.02)
+		self.lc.start(.01)
 
 	def gameOver(self,winner):
 		if (winner == 1):
